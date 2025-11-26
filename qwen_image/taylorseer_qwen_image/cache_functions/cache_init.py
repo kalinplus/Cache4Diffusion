@@ -1,6 +1,6 @@
 from diffusers.models import QwenImageTransformer2DModel
 
-N = 6
+N = 5
 O = 1
 
 def cache_init(self: QwenImageTransformer2DModel):   
@@ -10,8 +10,11 @@ def cache_init(self: QwenImageTransformer2DModel):
     cache_dic = {}
     cache = {}
     cache_index = {}
-    cache[-1]={}
-    cache_index[-1]={}
+    for history_index in [-2, -1]:
+        cache[history_index]={}
+        cache_index[history_index]={}
+        cache[history_index]['double_stream']={}
+
     cache_index['layer_index']={}
     cache_dic['attn_map'] = {}
     cache_dic['attn_map'][-1] = {}
@@ -21,12 +24,12 @@ def cache_init(self: QwenImageTransformer2DModel):
 
     # cache[-1]['double_stream']={}
     # cache[-1]['single_stream']={}
-    cache[-1]['double_stream']={}
     cache_dic['cache_counter'] = 0
 
     # for j in range(60):
     for i in range(self.config.num_layers):
-        cache[-1]['double_stream'][i] = {}
+        for history_index in [-2, -1]:
+            cache[history_index]['double_stream'][i] = {}
         cache_index[-1][i] = {}
         cache_dic['attn_map'][-1]['double_stream'][i] = {}
         cache_dic['attn_map'][-1]['double_stream'][i]['total'] = {}
