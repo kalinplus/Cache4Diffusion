@@ -1,6 +1,5 @@
 import argparse
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0, 1, 2, 3'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 import re
 import time
@@ -93,7 +92,7 @@ def main() -> None:
         args.model, 
         torch_dtype=torch_dtype,
         low_cpu_mem_usage=True,
-        device_map='balanced'
+        device_map='cuda'
     )
 
     if args.use_taylor:

@@ -4,7 +4,7 @@
 import torch
 from typing import Any, Dict, Optional, Tuple, Union
 from diffusers.models.transformers.transformer_qwenimage import QwenImageTransformerBlock
-from taylorseer_qwen_image.taylorseer_utils import derivative_approximation, taylor_formula, taylor_cache_init
+from qwen_image.taylorseer_qwen_image.taylorseer_utils import *
 
 def taylorseer_qwen_image_mmdit_forward(
     self: QwenImageTransformerBlock,
@@ -65,18 +65,22 @@ def taylorseer_qwen_image_mmdit_forward(
 
         # Process attention outputs for the `hidden_states` (image stream)
         current['module'] = 'img_attn'
+        # shift_cache_history(cache_dic=cache_dic, current=current)
         taylor_cache_init(cache_dic=cache_dic, current=current)
-        derivative_approximation(cache_dic=cache_dic, current=current, feature=img_attn_output)
+        # derivative_approximation(cache_dic=cache_dic, current=current, feature=img_attn_output)
+        derivative_approximation_naive(cache_dic=cache_dic, current=current, feature=img_attn_output)
         # Apply attention gates and add residual (like in Megatron)
         hidden_states = hidden_states + img_gate1 * img_attn_output
 
         current['module'] = 'img_mlp'
+        # shift_cache_history(cache_dic=cache_dic, current=current)
         taylor_cache_init(cache_dic=cache_dic, current=current)
         # Process image stream - norm2 + MLP
         img_normed2 = self.img_norm2(hidden_states)
         img_modulated2, img_gate2 = self._modulate(img_normed2, img_mod2)
         img_mlp_output = self.img_mlp(img_modulated2)
-        derivative_approximation(cache_dic=cache_dic, current=current, feature=img_mlp_output)
+        # derivative_approximation(cache_dic=cache_dic, current=current, feature=img_mlp_output)
+        derivative_approximation_naive(cache_dic=cache_dic, current=current, feature=img_mlp_output)
 
         hidden_states = hidden_states + img_gate2 * img_mlp_output
 
@@ -84,18 +88,22 @@ def taylorseer_qwen_image_mmdit_forward(
 
         # Process attention outputs for the `encoder_hidden_states` (text stream)
         current['module'] = 'txt_attn'
+        # shift_cache_history(cache_dic=cache_dic, current=current)
         taylor_cache_init(cache_dic=cache_dic, current=current)
-        derivative_approximation(cache_dic=cache_dic, current=current, feature=txt_attn_output)
+        # derivative_approximation(cache_dic=cache_dic, current=current, feature=txt_attn_output)
+        derivative_approximation_naive(cache_dic=cache_dic, current=current, feature=txt_attn_output)
 
         encoder_hidden_states = encoder_hidden_states + txt_gate1 * txt_attn_output
 
         current['module'] = 'txt_mlp'
+        # shift_cache_history(cache_dic=cache_dic, current=current)
         taylor_cache_init(cache_dic=cache_dic, current=current)
         # Process text stream - norm2 + MLP
         txt_normed2 = self.txt_norm2(encoder_hidden_states)
         txt_modulated2, txt_gate2 = self._modulate(txt_normed2, txt_mod2)
         txt_mlp_output = self.txt_mlp(txt_modulated2)
-        derivative_approximation(cache_dic=cache_dic, current=current, feature=txt_mlp_output)
+        # derivative_approximation(cache_dic=cache_dic, current=current, feature=txt_mlp_output)
+        derivative_approximation_naive(cache_dic=cache_dic, current=current, feature=txt_mlp_output)
 
         encoder_hidden_states = encoder_hidden_states + txt_gate2 * txt_mlp_output
 

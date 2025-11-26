@@ -1,6 +1,10 @@
-local_model_path="/data/public/model/Qwen/Qwen-Image"
+local_model_path="/data/public/models/Qwen/Qwen-Image"
 model_id="Qwen/Qwen-Image"
-export CUDA_VISIBLE_DEVICES='3, 4, 5, 6'
+export CUDA_VISIBLE_DEVICES='1'
+
+PROJECT_ROOT="/data/huangkailin-20250908/Cache4Diffusion"
+export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
+cd "${PROJECT_ROOT}"
 
 python qwen_image/taylorseer_qwen_image/batch_infer.py \
     --model "$local_model_path" \

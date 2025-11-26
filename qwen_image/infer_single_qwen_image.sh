@@ -1,11 +1,15 @@
-local_model_path="/data/public/model/Qwen/Qwen-Image"
+local_model_path="/data/public/models/Qwen/Qwen-Image"
 model_id="Qwen/Qwen-Image"
-export CUDA_VISIBLE_DEVICES='3, 4, 5, 6'
+export CUDA_VISIBLE_DEVICES='1'
+
+PROJECT_ROOT="/data/huangkailin-20250908/Cache4Diffusion"
+export PYTHONPATH="${PROJECT_ROOT}:${PYTHONPATH:-}"
+cd "${PROJECT_ROOT}"
 
 # cd qwen_image
 python qwen_image/taylorseer_qwen_image/diffusers_taylorseer_qwen_image.py \
     --model "$local_model_path" \
-    --steps 50 \
+    --steps 150 \
     --seed 42 \
     --dtype bfloat16 \
     --true_cfg_scale 7.5 \
