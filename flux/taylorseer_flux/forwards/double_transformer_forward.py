@@ -5,7 +5,14 @@ from typing import Any, Dict, Optional, Tuple, Union
 from diffusers.models.transformers.transformer_flux import FluxTransformerBlock
 import torch
 
-from taylorseer_utils import derivative_approximation, taylor_formula, taylor_cache_init
+from taylorseer_utils import (
+    derivative_approximation, 
+    derivative_approximation_with_smoothing,
+    derivative_approximation_hybrid_smoothing,
+    shift_cache_history,
+    taylor_formula, 
+    taylor_cache_init
+)
 
 def taylorseer_flux_double_block_forward(
     self: FluxTransformerBlock,
@@ -25,11 +32,20 @@ def taylorseer_flux_double_block_forward(
 
     cache_dic = joint_attention_kwargs['cache_dic']
     current = joint_attention_kwargs['current']
+    
+    # 获取平滑配置
+    use_smoothing = cache_dic.get('use_smoothing', False)
+    smoothing_method = cache_dic.get('smoothing_method', 'moving_average')
+    smoothing_alpha = cache_dic.get('smoothing_alpha', 0.7)
+    use_hybrid_smoothing = cache_dic.get('use_hybrid_smoothing', False)
 
     if current['type'] == 'full':
 
         current['module'] = 'attn'
+        if use_smoothing:
+            shift_cache_history(cache_dic=cache_dic, current=current)
         taylor_cache_init(cache_dic=cache_dic, current=current)
+        
         # encoder_hidden_states -> txt
         # hidden_states -> img
         # (encoder_hidden_states, hidden_states) -> total
@@ -48,21 +64,66 @@ def taylorseer_flux_double_block_forward(
             attn_output, context_attn_output, ip_attn_output = attention_outputs
             raise NotImplementedError("Not implemented for TaylorSeer yet.") 
 
-        # Process attention outputs for the `hidden_states`.
+        # ========== Process attention outputs for the `hidden_states` (Image) ==========
         current['module'] = 'img_attn'
+        if use_smoothing:
+            shift_cache_history(cache_dic=cache_dic, current=current)
         taylor_cache_init(cache_dic=cache_dic, current=current)
 
-        derivative_approximation(cache_dic=cache_dic, current=current, feature=attn_output)
+        if use_smoothing and use_hybrid_smoothing:
+            # print("[INFO] Using hybrid smoothing for image attentioni in double stream.")
+            derivative_approximation_hybrid_smoothing(
+                cache_dic=cache_dic, 
+                current=current, 
+                feature=attn_output,
+                smoothing_method=smoothing_method,
+                alpha=smoothing_alpha
+            )
+        elif use_smoothing:
+            # print("[INFO] Using smoothing for image attention in double stream.")
+            derivative_approximation_with_smoothing(
+                cache_dic=cache_dic, 
+                current=current, 
+                feature=attn_output,
+                smoothing_method=smoothing_method,
+                alpha=smoothing_alpha
+            )
+        else:
+            # print("[INFO] No smoothing for image attention in double stream.")
+            derivative_approximation(cache_dic=cache_dic, current=current, feature=attn_output)
+        
         attn_output = gate_msa.unsqueeze(1) * attn_output
         hidden_states = hidden_states + attn_output
 
+        # ========== Image MLP ==========
         current['module'] = 'img_mlp'
+        if use_smoothing:
+            shift_cache_history(cache_dic=cache_dic, current=current)
         taylor_cache_init(cache_dic=cache_dic, current=current)
+        
         norm_hidden_states = self.norm2(hidden_states)
         norm_hidden_states = norm_hidden_states * (1 + scale_mlp[:, None]) + shift_mlp[:, None]
 
         ff_output = self.ff(norm_hidden_states)
-        derivative_approximation(cache_dic=cache_dic, current=current, feature=ff_output)
+        
+        if use_hybrid_smoothing:
+            derivative_approximation_hybrid_smoothing(
+                cache_dic=cache_dic, 
+                current=current, 
+                feature=ff_output,
+                smoothing_method=smoothing_method,
+                alpha=smoothing_alpha
+            )
+        elif use_smoothing:
+            derivative_approximation_with_smoothing(
+                cache_dic=cache_dic, 
+                current=current, 
+                feature=ff_output,
+                smoothing_method=smoothing_method,
+                alpha=smoothing_alpha
+            )
+        else:
+            derivative_approximation(cache_dic=cache_dic, current=current, feature=ff_output)
 
         ff_output = gate_mlp.unsqueeze(1) * ff_output
         hidden_states = hidden_states + ff_output
@@ -70,21 +131,63 @@ def taylorseer_flux_double_block_forward(
         if len(attention_outputs) == 3:
             hidden_states = hidden_states + ip_attn_output
 
-        # Process attention outputs for the `encoder_hidden_states`.
+        # ========== Process attention outputs for the `encoder_hidden_states` (Text) ==========
         current['module'] = 'txt_attn'
+        if use_smoothing:
+            shift_cache_history(cache_dic=cache_dic, current=current)
         taylor_cache_init(cache_dic=cache_dic, current=current)
 
-        derivative_approximation(cache_dic=cache_dic, current=current, feature=context_attn_output)
+        if use_hybrid_smoothing:
+            derivative_approximation_hybrid_smoothing(
+                cache_dic=cache_dic, 
+                current=current, 
+                feature=context_attn_output,
+                smoothing_method=smoothing_method,
+                alpha=smoothing_alpha
+            )
+        elif use_smoothing:
+            derivative_approximation_with_smoothing(
+                cache_dic=cache_dic, 
+                current=current, 
+                feature=context_attn_output,
+                smoothing_method=smoothing_method,
+                alpha=smoothing_alpha
+            )
+        else:
+            derivative_approximation(cache_dic=cache_dic, current=current, feature=context_attn_output)
+        
         context_attn_output = c_gate_msa.unsqueeze(1) * context_attn_output
         encoder_hidden_states = encoder_hidden_states + context_attn_output
 
+        # ========== Text MLP ==========
         current['module'] = 'txt_mlp'
+        if use_smoothing:
+            shift_cache_history(cache_dic=cache_dic, current=current)
         taylor_cache_init(cache_dic=cache_dic, current=current)
+        
         norm_encoder_hidden_states = self.norm2_context(encoder_hidden_states)
         norm_encoder_hidden_states = norm_encoder_hidden_states * (1 + c_scale_mlp[:, None]) + c_shift_mlp[:, None]
 
         context_ff_output = self.ff_context(norm_encoder_hidden_states)
-        derivative_approximation(cache_dic=cache_dic, current=current, feature=context_ff_output)
+        
+        if use_hybrid_smoothing:
+            derivative_approximation_hybrid_smoothing(
+                cache_dic=cache_dic, 
+                current=current, 
+                feature=context_ff_output,
+                smoothing_method=smoothing_method,
+                alpha=smoothing_alpha
+            )
+        elif use_smoothing:
+            derivative_approximation_with_smoothing(
+                cache_dic=cache_dic, 
+                current=current, 
+                feature=context_ff_output,
+                smoothing_method=smoothing_method,
+                alpha=smoothing_alpha
+            )
+        else:
+            derivative_approximation(cache_dic=cache_dic, current=current, feature=context_ff_output)
 
         encoder_hidden_states = encoder_hidden_states + c_gate_mlp.unsqueeze(1) * context_ff_output
 
