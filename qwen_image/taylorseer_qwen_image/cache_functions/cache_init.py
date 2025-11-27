@@ -1,6 +1,6 @@
 from diffusers.models import QwenImageTransformer2DModel
 
-N = 5
+N = 6
 O = 1
 
 def cache_init(self: QwenImageTransformer2DModel):   
