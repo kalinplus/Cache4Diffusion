@@ -3,7 +3,6 @@ import json
 from typing import Dict 
 import torch
 import math
-import uuid
 from collections import Counter
 
 def derivative_approximation(cache_dic: Dict, current: Dict, feature: torch.Tensor):
@@ -30,6 +29,155 @@ def derivative_approximation(cache_dic: Dict, current: Dict, feature: torch.Tens
             break
     
     cache_dic['cache'][-1][current['stream']][current['layer']][current['module']] = updated_taylor_factors
+
+def taylor_formula(cache_dic: Dict, current: Dict) -> torch.Tensor: 
+    """
+    Compute Taylor expansion error.
+    
+    :param cache_dic: Cache dictionary
+    :param current: Information of the current step
+    """
+    x = current['step'] - current['activated_steps'][-1]
+    #x = current['t'] - current['activated_times'][-1]
+    output = 0
+
+    for i in range(len(cache_dic['cache'][-1][current['stream']][current['layer']][current['module']])):
+        output += (1 / math.factorial(i)) * cache_dic['cache'][-1][current['stream']][current['layer']][current['module']][i] * (x ** i)
+    
+    return output
+
+def taylor_cache_init(cache_dic: Dict, current: Dict):
+    """
+    Initialize Taylor cache and allocate storage for different-order derivatives in the Taylor cache.
+    
+    :param cache_dic: Cache dictionary
+    :param current: Information of the current step
+    """
+    if (current['step'] == 0) and (cache_dic['taylor_cache']):
+        cache_dic['cache'][-1][current['stream']][current['layer']][current['module']] = {}
+
+
+
+
+
+def exponential_smoothing(features: list, alpha: float) -> list:
+    """
+    指数平滑滤波：对历史特征序列进行平滑处理。
+    
+    :param features: 特征列表 [x1, x2, x3, ...]，每个是 (N, D) 的 tensor
+    :param alpha: 平滑系数，0 < alpha < 1，越小平滑越强
+    :return: 平滑后的特征列表
+    """
+    if len(features) <= 1:
+        return features
+    
+    smoothed = [features[0]]  # 第一个点保持不变
+    for i in range(1, len(features)):
+        # S_t = alpha * X_t + (1 - alpha) * S_{t-1}
+        smoothed_val = alpha * features[i] + (1 - alpha) * smoothed[i - 1]
+        smoothed.append(smoothed_val)
+    
+    return smoothed
+
+def moving_average_smoothing(features: list, window_size: int = 2) -> list:
+    """
+    移动平均滤波：对历史特征序列进行平滑处理。
+    
+    :param features: 特征列表 [x1, x2, x3, ...]，每个是 (N, D) 的 tensor
+    :param window_size: 窗口大小
+    :return: 平滑后的特征列表
+    """
+    if len(features) < window_size:
+        return features
+    
+    smoothed = []
+    for i in range(len(features)):
+        if i < window_size - 1:
+            # 窗口不足时，使用可用的点
+            smoothed.append(sum(features[:i+1]) / (i + 1))
+        else:
+            # 计算窗口内的平均值
+            window_sum = sum(features[i - window_size + 1 : i + 1])
+            smoothed.append(window_sum / window_size)
+    
+    return smoothed
+
+def derivative_approximation_with_smoothing(cache_dic: Dict, current: Dict, feature: torch.Tensor, 
+                                            smoothing_method: str = 'moving_average', alpha: float = 0.7):
+    """
+    带平滑预处理的导数近似计算。
+    需要配合 shift_cache_history 使用以维护 cache[-2]。
+    
+    :param cache_dic: Cache dictionary
+    :param current: Information of the current step
+    :param feature: 当前特征
+    :param smoothing_method: 'exponential' 或 'moving_average'
+    :param alpha: 指数平滑系数
+    """
+    difference_distance = current['activated_steps'][-1] - current['activated_steps'][-2]
+    
+    cache = cache_dic['cache']
+    stream, layer, module = current['stream'], current['layer'], current['module']
+    cache_entry = cache[-1][stream][layer][module]
+    
+    # ========== 收集历史特征 ==========
+    # 顺序: [F_{-2}, F_{-1}, F_0] (从旧到新)
+    history_features = []
+    
+    # F_{-2}: 从 cache[-2] 获取
+    has_cache_2 = (
+        -2 in cache and
+        stream in cache[-2] and
+        layer in cache[-2][stream] and
+        module in cache[-2][stream][layer] and
+        0 in cache[-2][stream][layer][module]
+    )
+    if has_cache_2:
+        history_features.append(cache[-2][stream][layer][module][0])
+    
+    # F_{-1}: 从 cache[-1] 获取
+    if cache_entry.get(0, None) is not None:
+        history_features.append(cache_entry[0])
+    
+    # F_0: 当前特征
+    history_features.append(feature)
+    
+    # ========== 根据历史长度选择策略 ==========
+    updated_taylor_factors = {}
+    
+    if len(history_features) >= 3:
+        # 有3个点，可以做平滑
+        if smoothing_method == 'exponential':
+            smoothed = exponential_smoothing(history_features, alpha)
+        elif smoothing_method == 'moving_average':
+            smoothed = moving_average_smoothing(history_features, window_size=2)
+        
+        # 使用平滑后的值
+        updated_taylor_factors[0] = smoothed[-1]  # 平滑后的当前
+        updated_taylor_factors[1] = (smoothed[-1] - smoothed[-2]) / difference_distance
+        
+    elif len(history_features) == 2:
+        # 只有2个点，无法平滑，使用普通差分
+        updated_taylor_factors[0] = feature
+        updated_taylor_factors[1] = (feature - history_features[0]) / difference_distance
+        
+    else:
+        # 只有1个点（第一步），只存0阶
+        updated_taylor_factors[0] = feature
+    
+    # ========== 高阶导数递推 ==========
+    for order in range(1, cache_dic['max_order']):
+        if cache_entry.get(order, None) is not None and (order) in updated_taylor_factors:
+            updated_taylor_factors[order + 1] = (updated_taylor_factors[order] - cache_entry[order]) / difference_distance
+        else:
+            break
+    
+    cache[-1][stream][layer][module] = updated_taylor_factors
+
+
+
+
+
 
 def derivative_approximation_hybrid(cache_dic: Dict, current: Dict, feature: torch.Tensor):
     """
@@ -88,31 +236,9 @@ def shift_cache_history(cache_dic: Dict, current: Dict):
     if (current['step'] > 0) and (cache_dic['taylor_cache']):
         cache_dic['cache'][-2][current['stream']][current['layer']][current['module']] = cache_dic['cache'][-1][current['stream']][current['layer']][current['module']]
 
-def taylor_formula(cache_dic: Dict, current: Dict) -> torch.Tensor: 
-    """
-    Compute Taylor expansion error.
-    
-    :param cache_dic: Cache dictionary
-    :param current: Information of the current step
-    """
-    x = current['step'] - current['activated_steps'][-1]
-    #x = current['t'] - current['activated_times'][-1]
-    output = 0
 
-    for i in range(len(cache_dic['cache'][-1][current['stream']][current['layer']][current['module']])):
-        output += (1 / math.factorial(i)) * cache_dic['cache'][-1][current['stream']][current['layer']][current['module']][i] * (x ** i)
-    
-    return output
 
-def taylor_cache_init(cache_dic: Dict, current: Dict):
-    """
-    Initialize Taylor cache and allocate storage for different-order derivatives in the Taylor cache.
-    
-    :param cache_dic: Cache dictionary
-    :param current: Information of the current step
-    """
-    if (current['step'] == 0) and (cache_dic['taylor_cache']):
-        cache_dic['cache'][-1][current['stream']][current['layer']][current['module']] = {}
+
 
 def taylor_formula_compare(cache_dic: Dict, current: Dict, ref_feature: torch.Tensor) -> torch.Tensor:
     """
