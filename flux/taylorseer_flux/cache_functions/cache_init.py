@@ -1,12 +1,15 @@
 from diffusers.models import FluxTransformer2DModel
+import os
 
 N=6
 O=1
 
-USE_SMOOTHING = False
-USE_HYBRID_SMOOTHING = False # 仅当 USE_SMOOTHING=True 时有效
-SMOOTHING_METHOD = 'exponential'  # 'exponential' or 'moving_average'
-SMOOTHING_ALPHA = 0.7  # for exponential smoothing
+USE_SMOOTHING = os.environ.get("USE_SMOOTHING", "False").lower() in ("true", "1", "yes")  # 是否启用平滑
+USE_HYBRID_SMOOTHING = os.environ.get("USE_HYBRID_SMOOTHING", "False").lower() == "true" # 仅当 USE_SMOOTHING=True 时有效
+SMOOTHING_METHOD = os.environ.get("SMOOTHING_METHOD", "exponential")  # 'exponential' or 'moving_average'
+SMOOTHING_ALPHA = float(os.environ.get("SMOOTHING_ALPHA", "0.7"))  # for exponential smoothing
+
+print(f"[INFO] Cache4Diffusion: USE_SMOOTHING={USE_SMOOTHING}, USE_HYBRID_SMOOTHING={USE_HYBRID_SMOOTHING}, SMOOTHING_METHOD={SMOOTHING_METHOD}, SMOOTHING_ALPHA={SMOOTHING_ALPHA}")
 
 def cache_init(self: FluxTransformer2DModel, ):   
     '''
