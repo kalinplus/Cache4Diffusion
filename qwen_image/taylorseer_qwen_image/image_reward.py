@@ -149,9 +149,7 @@ def evaluate_image_reward(image_dir, prompts_file=None, recent_n=10):
 
 if __name__ == "__main__":
     # 设置图像目录
-    image_dir = "/data/huangkailin-20250908/Cache4Diffusion/flux/outputs/smooth/db200/naive_ts"
-    # image_dir = "/data/huangkailin-20250908/Cache4Diffusion/flux/outputs/smooth/db200/origin"
-    # image_dir = "/data/huangkailin-20250908/Cache4Diffusion/flux/outputs/smooth/db200/exp/0.95"
+    image_dir = "/data/huangkailin-20250908/Cache4Diffusion/qwen_image/outputs/db200/taylor_db200"
     
     # 指定 prompts txt 文件路径
     prompts_file = "/data/huangkailin-20250908/Cache4Diffusion/assets/prompts/DrawBench200.txt"
