@@ -56,20 +56,17 @@ def taylor_cache_init(cache_dic: Dict, current: Dict):
 def exponential_smoothing(features: list, alpha: float) -> list:
     """
     指数平滑滤波：对历史特征序列进行平滑处理。
-    
-    :param features: 特征列表 [x1, x2, x3, ...]，每个是 (N, D) 的 tensor
+    :param features: 特征列表 [x1, x2, x3, ...]，每个是 (N, D) 的 tensor，历史特征在前
     :param alpha: 平滑系数，0 < alpha < 1，越小平滑越强
     :return: 平滑后的特征列表
     """
     if len(features) <= 1:
         return features
-    
-    smoothed = [features[0]]  # 第一个点保持不变
+    smoothed = [features[0]]
     for i in range(1, len(features)):
         # S_t = alpha * X_t + (1 - alpha) * S_{t-1}
         smoothed_val = alpha * features[i] + (1 - alpha) * smoothed[i - 1]
         smoothed.append(smoothed_val)
-    
     return smoothed
 
 

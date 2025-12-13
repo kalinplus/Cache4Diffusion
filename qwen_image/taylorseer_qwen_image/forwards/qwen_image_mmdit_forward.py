@@ -42,6 +42,15 @@ def taylorseer_qwen_image_mmdit_forward(
     cache_dic = joint_attention_kwargs['cache_dic']
     current = joint_attention_kwargs['current']
 
+    # 获取平滑配置
+    use_smoothing = cache_dic.get('use_smoothing', False)
+    smoothing_method = cache_dic.get('smoothing_method', 'moving_average')
+    smoothing_alpha = cache_dic.get('smoothing_alpha', 0.7)
+    use_hybrid_smoothing = cache_dic.get('use_hybrid_smoothing', False)
+    
+    # print(f"using smoothing: {use_smoothing}, method: {smoothing_method}, alpha: {smoothing_alpha}, hybrid: {use_hybrid_smoothing}")
+    
+
     if current['type'] == 'full':
         # EXPLANATION
         # encoder_hidden_states -> txt
@@ -65,22 +74,34 @@ def taylorseer_qwen_image_mmdit_forward(
 
         # Process attention outputs for the `hidden_states` (image stream)
         current['module'] = 'img_attn'
-        # shift_cache_history(cache_dic=cache_dic, current=current)
+        shift_cache_history(cache_dic=cache_dic, current=current)
         taylor_cache_init(cache_dic=cache_dic, current=current)
-        derivative_approximation(cache_dic=cache_dic, current=current, feature=img_attn_output)
-        # derivative_approximation_with_smoothing(cache_dic=cache_dic, current=current, feature=img_attn_output)
+        # derivative_approximation(cache_dic=cache_dic, current=current, feature=img_attn_output)
+        derivative_approximation_with_smoothing(
+            cache_dic=cache_dic, 
+            current=current, 
+            feature=img_attn_output,
+            smoothing_method=smoothing_method,
+            alpha=smoothing_alpha
+        )
         # Apply attention gates and add residual (like in Megatron)
         hidden_states = hidden_states + img_gate1 * img_attn_output
 
         current['module'] = 'img_mlp'
-        # shift_cache_history(cache_dic=cache_dic, current=current)
+        shift_cache_history(cache_dic=cache_dic, current=current)
         taylor_cache_init(cache_dic=cache_dic, current=current)
         # Process image stream - norm2 + MLP
         img_normed2 = self.img_norm2(hidden_states)
         img_modulated2, img_gate2 = self._modulate(img_normed2, img_mod2)
         img_mlp_output = self.img_mlp(img_modulated2)
-        derivative_approximation(cache_dic=cache_dic, current=current, feature=img_mlp_output)
-        # derivative_approximation_with_smoothing(cache_dic=cache_dic, current=current, feature=img_mlp_output)
+        # derivative_approximation(cache_dic=cache_dic, current=current, feature=img_mlp_output)
+        derivative_approximation_with_smoothing(
+            cache_dic=cache_dic, 
+            current=current, 
+            feature=img_mlp_output,
+            smoothing_method=smoothing_method,
+            alpha=smoothing_alpha
+        )
 
         hidden_states = hidden_states + img_gate2 * img_mlp_output
 
@@ -88,22 +109,34 @@ def taylorseer_qwen_image_mmdit_forward(
 
         # Process attention outputs for the `encoder_hidden_states` (text stream)
         current['module'] = 'txt_attn'
-        # shift_cache_history(cache_dic=cache_dic, current=current)
+        shift_cache_history(cache_dic=cache_dic, current=current)
         taylor_cache_init(cache_dic=cache_dic, current=current)
-        derivative_approximation(cache_dic=cache_dic, current=current, feature=txt_attn_output)
-        # derivative_approximation_with_smoothing(cache_dic=cache_dic, current=current, feature=txt_attn_output)
+        # derivative_approximation(cache_dic=cache_dic, current=current, feature=txt_attn_output)
+        derivative_approximation_with_smoothing(
+            cache_dic=cache_dic, 
+            current=current, 
+            feature=txt_attn_output,
+            smoothing_method=smoothing_method,
+            alpha=smoothing_alpha
+        )
 
         encoder_hidden_states = encoder_hidden_states + txt_gate1 * txt_attn_output
 
         current['module'] = 'txt_mlp'
-        # shift_cache_history(cache_dic=cache_dic, current=current)
+        shift_cache_history(cache_dic=cache_dic, current=current)
         taylor_cache_init(cache_dic=cache_dic, current=current)
         # Process text stream - norm2 + MLP
         txt_normed2 = self.txt_norm2(encoder_hidden_states)
         txt_modulated2, txt_gate2 = self._modulate(txt_normed2, txt_mod2)
         txt_mlp_output = self.txt_mlp(txt_modulated2)
-        derivative_approximation(cache_dic=cache_dic, current=current, feature=txt_mlp_output)
-        # derivative_approximation_with_smoothing(cache_dic=cache_dic, current=current, feature=txt_mlp_output)
+        # derivative_approximation(cache_dic=cache_dic, current=current, feature=txt_mlp_output)
+        derivative_approximation_with_smoothing(
+            cache_dic=cache_dic, 
+            current=current, 
+            feature=txt_mlp_output,
+            smoothing_method=smoothing_method,
+            alpha=smoothing_alpha
+        )
 
         encoder_hidden_states = encoder_hidden_states + txt_gate2 * txt_mlp_output
 
