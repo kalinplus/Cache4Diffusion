@@ -38,6 +38,7 @@ outputs/
 logs/
 *.log
 tmp/
+taylorseer/samples
 
 .env
 .vscode

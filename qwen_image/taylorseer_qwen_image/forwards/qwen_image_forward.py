@@ -13,7 +13,7 @@ from diffusers.utils import USE_PEFT_BACKEND, is_torch_version, logging, scale_l
 import torch
 import numpy as np
 
-from qwen_image.taylorseer_qwen_image.cache_functions import cache_init, cal_type
+from qwen_image.taylorseer_qwen_image.cache_functions import cal_type
 
 def taylorseer_qwen_image_forward(
     self,
@@ -27,6 +27,8 @@ def taylorseer_qwen_image_forward(
     attention_kwargs: Optional[Dict[str, Any]] = None,  # the same as joint_attention_kwargs
     controlnet_block_samples=None,
     return_dict: bool = True,
+    cache_dic: Optional[Dict[str, Any]] = None,
+    current: Optional[Dict[str, Any]] = None,
 ) -> Union[torch.Tensor, Transformer2DModelOutput]:
     """
     The [`QwenTransformer2DModel`] forward method.
@@ -52,12 +54,7 @@ def taylorseer_qwen_image_forward(
         If `return_dict` is True, an [`~models.transformer_2d.Transformer2DModelOutput`] is returned, otherwise a
         `tuple` where the first element is the sample tensor.
     """
-    if attention_kwargs is None:
-        attention_kwargs = {}
-    if 'cache_dic' not in attention_kwargs:
-        attention_kwargs['cache_dic'], attention_kwargs['current'] = cache_init(self)
-
-    cal_type(attention_kwargs['cache_dic'], attention_kwargs['current'])
+    # cache_dic 和 current 现在直接作为参数传入
 
     if attention_kwargs is not None:
         attention_kwargs = attention_kwargs.copy()
@@ -91,10 +88,8 @@ def taylorseer_qwen_image_forward(
 
     image_rotary_emb = self.pos_embed(img_shapes, txt_seq_lens, device=hidden_states.device)
 
-    attention_kwargs['current']['stream'] = 'double_stream'
-
     for index_block, block in enumerate(self.transformer_blocks):
-        attention_kwargs['current']['layer'] = index_block
+        current['layer'] = index_block
         
         if torch.is_grad_enabled() and self.gradient_checkpointing:
             encoder_hidden_states, hidden_states = self._gradient_checkpointing_func(
@@ -104,13 +99,12 @@ def taylorseer_qwen_image_forward(
                 encoder_hidden_states_mask,
                 temb,
                 image_rotary_emb,
+                None,  # joint_attention_kwargs
+                cache_dic,
+                current,
             )
 
         else:
-            # if "cuda" in hidden_states.device.type and index_block % 5 == 0: # Print every 5 blocks to avoid spam
-            #     print(f"\n--- Before Block {index_block} (on device: {hidden_states.device}) ---")
-            #     torch.cuda.synchronize()
-            #     print(torch.cuda.memory_summary(abbreviated=True))
             encoder_hidden_states, hidden_states = block(
                 hidden_states=hidden_states,
                 encoder_hidden_states=encoder_hidden_states,
@@ -118,6 +112,8 @@ def taylorseer_qwen_image_forward(
                 temb=temb,
                 image_rotary_emb=image_rotary_emb,
                 joint_attention_kwargs=attention_kwargs,
+                cache_dic=cache_dic,
+                current=current,
             )
 
         # controlnet residual
@@ -134,10 +130,9 @@ def taylorseer_qwen_image_forward(
     if USE_PEFT_BACKEND:
         # remove `lora_scale` from each PEFT layer
         unscale_lora_layers(self, lora_scale)
-    
-    attention_kwargs['current']['step'] += 1
+
+    # step 已经在 pipeline call 中设置了
     
     if not return_dict:
         return (output,)
-
     return Transformer2DModelOutput(sample=output)
