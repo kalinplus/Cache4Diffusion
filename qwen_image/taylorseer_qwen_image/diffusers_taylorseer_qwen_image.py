@@ -9,7 +9,6 @@ from diffusers.utils import logging
 from forwards import (
     taylorseer_qwen_image_mmdit_forward,
     taylorseer_qwen_image_forward,
-    taylorseer_qwen_image_pipeline_call,
 )
 
 
