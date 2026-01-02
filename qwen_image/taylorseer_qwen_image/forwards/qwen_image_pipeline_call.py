@@ -219,13 +219,15 @@ def taylorseer_qwen_image_pipeline_call(
     else:
         guidance = None
 
-    if self.attention_kwargs is None:
-        self._attention_kwargs = {}
-
     txt_seq_lens = prompt_embeds_mask.sum(dim=1).tolist() if prompt_embeds_mask is not None else None
     negative_txt_seq_lens = (
         negative_prompt_embeds_mask.sum(dim=1).tolist() if negative_prompt_embeds_mask is not None else None
     )
+
+    # 6. Initialize cache
+    from qwen_image.taylorseer_qwen_image.cache_functions import cache_init, cal_type
+    cache_dic, current = cache_init(self.transformer)
+    self.transformer.__class__.num_steps = num_inference_steps
 
     # 6. Denoising loop
     self.scheduler.set_begin_index(0)
@@ -237,7 +239,13 @@ def taylorseer_qwen_image_pipeline_call(
             self._current_timestep = t
             # broadcast to batch dimension in a way that's compatible with ONNX/Core ML
             timestep = t.expand(latents.shape[0]).to(latents.dtype)
+            current['step'] = i  # 设置当前步数
+
+            # 计算计算类型
+            cal_type(cache_dic, current)
+
             with self.transformer.cache_context("cond"):
+                current['stream'] = 'cond'
                 noise_pred = self.transformer(
                     hidden_states=latents,
                     timestep=timestep / 1000,
@@ -246,12 +254,14 @@ def taylorseer_qwen_image_pipeline_call(
                     encoder_hidden_states=prompt_embeds,
                     img_shapes=img_shapes,
                     txt_seq_lens=txt_seq_lens,
-                    attention_kwargs=self.attention_kwargs,
                     return_dict=False,
+                    cache_dic=cache_dic,
+                    current=current,
                 )[0]
 
             if do_true_cfg:
                 with self.transformer.cache_context("uncond"):
+                    current['stream'] = 'uncond'
                     neg_noise_pred = self.transformer(
                         hidden_states=latents,
                         timestep=timestep / 1000,
@@ -260,8 +270,9 @@ def taylorseer_qwen_image_pipeline_call(
                         encoder_hidden_states=negative_prompt_embeds,
                         img_shapes=img_shapes,
                         txt_seq_lens=negative_txt_seq_lens,
-                        attention_kwargs=self.attention_kwargs,
                         return_dict=False,
+                        cache_dic=cache_dic,
+                        current=current,
                     )[0]
                 comb_pred = neg_noise_pred + true_cfg_scale * (noise_pred - neg_noise_pred)
 

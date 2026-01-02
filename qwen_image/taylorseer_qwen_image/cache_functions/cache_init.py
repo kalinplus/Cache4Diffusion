@@ -7,7 +7,7 @@ O = 1
 USE_SMOOTHING = os.environ.get("USE_SMOOTHING", "False").lower() in ("true", "1", "yes")  # 是否启用平滑
 USE_HYBRID_SMOOTHING = os.environ.get("USE_HYBRID_SMOOTHING", "False").lower() == "true" # 仅当 USE_SMOOTHING=True 时有效
 SMOOTHING_METHOD = os.environ.get("SMOOTHING_METHOD", "exponential")  # 'exponential' or 'moving_average'
-SMOOTHING_ALPHA = float(os.environ.get("SMOOTHING_ALPHA", "0.7"))  # for exponential smoothing
+SMOOTHING_ALPHA = float(os.environ.get("SMOOTHING_ALPHA", "0.8"))  # for exponential smoothing
 
 
 def cache_init(self: QwenImageTransformer2DModel):   
@@ -20,42 +20,33 @@ def cache_init(self: QwenImageTransformer2DModel):
     for history_index in [-2, -1]:
         cache[history_index]={}
         cache_index[history_index]={}
-        cache[history_index]['double_stream']={}
+        # 正确的实现：stream 是 'cond' 或 'uncond'
+        for stream in ['cond', 'uncond']:
+            cache[history_index][stream] = {}
+            cache_index[history_index][stream] = {}
 
     cache_index['layer_index']={}
     cache_dic['attn_map'] = {}
     cache_dic['attn_map'][-1] = {}
-    # cache_dic['attn_map'][-1]['double_stream'] = {}
-    # cache_dic['attn_map'][-1]['single_stream'] = {}
+    cache_dic['attn_map'][-2] = {}  # Add history cache for smoothing
     cache_dic['attn_map'][-1]['double_stream'] = {}
-
-    # cache[-1]['double_stream']={}
-    # cache[-1]['single_stream']={}
+    cache_dic['attn_map'][-2]['double_stream'] = {}  # Add history cache for smoothing
     cache_dic['cache_counter'] = 0
 
-    # for j in range(60):
     for i in range(self.config.num_layers):
         for history_index in [-2, -1]:
-            cache[history_index]['double_stream'][i] = {}
-        cache_index[-1][i] = {}
-        cache_dic['attn_map'][-1]['double_stream'][i] = {}
-        cache_dic['attn_map'][-1]['double_stream'][i]['total'] = {}
+            for stream in ['cond', 'uncond']:
+                cache[history_index][stream][i] = {}
+                cache_index[history_index][stream][i] = {}
 
-    # #for j in range(19):
-    # for j in range(self.config.num_layers):
-    #     cache[-1]['double_stream'][j] = {}
-    #     cache_index[-1][j] = {}
-    #     cache_dic['attn_map'][-1]['double_stream'][j] = {}
-    #     cache_dic['attn_map'][-1]['double_stream'][j]['total'] = {}
-    #     cache_dic['attn_map'][-1]['double_stream'][j]['txt_mlp'] = {}
-    #     cache_dic['attn_map'][-1]['double_stream'][j]['img_mlp'] = {}
-
-    # #for j in range(38):
-    # for j in range(self.config.num_single_layers):
-    #     cache[-1]['single_stream'][j] = {}
-    #     cache_index[-1][j] = {}
-    #     cache_dic['attn_map'][-1]['single_stream'][j] = {}
-    #     cache_dic['attn_map'][-1]['single_stream'][j]['total'] = {}
+        # Initialize attention maps for each history index
+        for history_index in [-2, -1]:
+            cache_dic['attn_map'][history_index]['double_stream'][i] = {}
+            cache_dic['attn_map'][history_index]['double_stream'][i]['total'] = {}
+            cache_dic['attn_map'][history_index]['double_stream'][i]['txt_mlp'] = {}
+            cache_dic['attn_map'][history_index]['double_stream'][i]['img_mlp'] = {}
+            cache_dic['attn_map'][history_index]['double_stream'][i]['txt_attn'] = {}
+            cache_dic['attn_map'][history_index]['double_stream'][i]['img_attn'] = {}
 
     cache_dic['taylor_cache'] = False
     cache_dic['Delta-DiT'] = False
@@ -98,5 +89,6 @@ def cache_init(self: QwenImageTransformer2DModel):
     current['activated_steps'] = [0]
     current['step'] = 0
     current['num_steps'] = self.num_steps
-
+    # current['stream'] 将在 pipeline call 中设置
+    
     return cache_dic, current

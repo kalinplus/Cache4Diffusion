@@ -1,11 +1,9 @@
 import argparse
 import os
-os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 import re
 import time
-
 import torch
-from diffusers import DiffusionPipeline
+from diffusers import DiffusionPipeline, QwenImagePipeline
 from diffusers.utils import logging
 
 from forwards import (
@@ -37,7 +35,6 @@ def get_torch_dtype(dtype_name: str) -> torch.dtype:
 
 
 def parse_args() -> argparse.Namespace:
-    # TODO: template from flux, modify for qwen-image
     parser = argparse.ArgumentParser(description="Single-prompt inference for Qwen-Image with TaylorSeer overrides")
     parser.add_argument("--prompt", type=str, required=True, help="Text prompt to generate an image for.")
     parser.add_argument("--steps", type=int, default=50, help="Number of sampling steps (num_inference_steps).")
@@ -97,12 +94,22 @@ def main() -> None:
 
     if args.use_taylor:
         # TaylorSeer settings and forward overrides
+        pipeline.__class__.__call__ = taylorseer_qwen_image_pipeline_call  # OOM if use this replaced call method. No parallelism, only set device_map='balanced' when load pipe
         pipeline.transformer.__class__.num_steps = int(args.steps)
         # pipeline.transformer.__class__.forward = taylorseer_qwen_image_forward
         pipeline.transformer.forward = taylorseer_qwen_image_forward.__get__(pipeline.transformer, pipeline.transformer.__class__)
+
+        # Add cache_context method to transformer
+        from contextlib import nullcontext
+
+        def cache_context(self, stream_name):
+            """Context manager for cache stream selection. Currently does nothing."""
+            return nullcontext()
+
+        pipeline.transformer.cache_context = cache_context.__get__(pipeline.transformer, pipeline.transformer.__class__)
+
         for transformer_block in pipeline.transformer.transformer_blocks:
             transformer_block.forward = taylorseer_qwen_image_mmdit_forward.__get__(transformer_block, transformer_block.__class__)
-        # pipeline.__class__.__call__ = taylorseer_qwen_image_pipeline_call  # OOM if use this replaced call method. No parallelism, only set device_map='balanced' when load pipe
 
     if args.enable_cpu_offload:
         raise NotImplementedError("CPU offload is not supported for TaylorSeer yet.")
@@ -123,12 +130,12 @@ def main() -> None:
 
     image = pipeline(
         prompt=args.prompt,
-        # negative_prompt="",
+        negative_prompt="bad anatomy, lowres, blurry, text, extra arms, worst quality, jpeg artifacts",
         # width=int(args.width) if hasattr(args, 'width') else 1024,
         # height=int(args.height) if hasattr(args, 'height') else 1024,
         num_inference_steps=int(args.steps),
         true_cfg_scale=float(args.true_cfg_scale),
-        generator=torch.Generator("cuda").manual_seed(int(args.seed)),
+        generator=torch.Generator("cpu").manual_seed(int(args.seed)),
     ).images[0]
 
     if is_cuda:
