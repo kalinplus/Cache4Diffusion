@@ -2,9 +2,10 @@ import torch
 from typing import Optional
 from PIL import Image
 from tqdm import tqdm
-from taylorseer_lite_hyimage.cache_utils import cache_init
-from types import MethodType
 import loguru
+from types import MethodType
+from scripts.taylorseer_lite_hyimage.cache_utils import cache_init
+
 def apply_taylorseer_lite_hyimage_pipeline(pipeline):
     """
     Apply taylorseer lite to HunyuanImage pipeline.
@@ -165,7 +166,17 @@ def apply_taylorseer_lite_hyimage_pipeline(pipeline):
 
         self.dit.to(self.execution_device)
 
-        cache_dic, current = cache_init(sampling_steps)
+        # Get smoothing configuration from kwargs or use defaults
+        use_smoothing = kwargs.get('use_smoothing', False)
+        smoothing_method = kwargs.get('smoothing_method', 'exponential')
+        smoothing_alpha = kwargs.get('smoothing_alpha', 0.8)
+
+        cache_dic, current = cache_init(
+            sampling_steps,
+            use_smoothing=use_smoothing,
+            smoothing_method=smoothing_method,
+            smoothing_alpha=smoothing_alpha
+        )
 
         for i, t in enumerate(tqdm(timesteps, desc="Denoising", total=len(timesteps))):
             current['step'] = i

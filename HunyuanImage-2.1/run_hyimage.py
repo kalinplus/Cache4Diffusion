@@ -28,11 +28,11 @@ def parse_args():
                        choices=["hunyuanimage-v2.1", "hunyuanimage-v2.1-distilled"],
                        help='Model name to use (default: hunyuanimage-v2.1)')
     
-    parser.add_argument('--use_reprompt', action='store_true', default=True,
-                       help='Enable prompt enhancement (default: True)')
+    parser.add_argument('--use_reprompt', action='store_true', default=False,
+                       help='Enable prompt enhancement (default: False)')
 
-    parser.add_argument('--use_refiner', action='store_true', default=True,
-                       help='Enable refiner model (default: True)')
+    parser.add_argument('--use_refiner', action='store_true', default=False,
+                       help='Enable refiner model (default: False)')
     
     parser.add_argument('--shift', type=float, default=5.0,
                        help='Shift parameter (default: 5.0)')

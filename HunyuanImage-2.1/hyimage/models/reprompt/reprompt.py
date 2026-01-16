@@ -51,8 +51,8 @@ class RePrompt:
         """
         if enable_offloading:
             device_map = None
-        self.model = AutoModelForCausalLM.from_pretrained(models_root_path, device_map=device_map, trust_remote_code=True)
-        self.tokenizer = AutoTokenizer.from_pretrained(models_root_path, trust_remote_code=True)
+        self.model = AutoModelForCausalLM.from_pretrained(models_root_path, device_map=device_map, trust_remote_code=True, local_files_only=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(models_root_path, trust_remote_code=True, local_files_only=True)
         self.enable_offloading = enable_offloading
 
         if enable_offloading:

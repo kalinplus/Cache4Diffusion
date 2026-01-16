@@ -5,8 +5,8 @@ import re
 import os
 from hyimage.diffusion.pipelines.hunyuanimage_pipeline import HunyuanImagePipeline
 import loguru
-from taylorseer_lite_hyimage.forwards.apply_taylorseer_lite_hyimage_pipeline import apply_taylorseer_lite_hyimage_pipeline
-from taylorseer_lite_hyimage.forwards.apply_taylorseer_lite_hyimage_forward import apply_taylorseer_lite_hyimage_forward
+from scripts.taylorseer_lite_hyimage.forwards.apply_taylorseer_lite_hyimage_pipeline import apply_taylorseer_lite_hyimage_pipeline
+from scripts.taylorseer_lite_hyimage.forwards.apply_taylorseer_lite_hyimage_forward import apply_taylorseer_lite_hyimage_forward
 
 def sanitize_filename(text: str, max_length: int = 100) -> str:
     """Clean and sanitize text for use as filename."""
@@ -27,20 +27,20 @@ def parse_args():
     
     parser.add_argument('--model_name', type=str, 
                        default="hunyuanimage-v2.1",
-                       choices=["hunyuanimage-v2.1", "hunyuanimage-v2.1-distilled"],
+                    #    choices=["hunyuanimage-v2.1", "hunyuanimage-v2.1-distilled"],
                        help='Model name to use (default: hunyuanimage-v2.1)')
     
-    parser.add_argument('--use_reprompt', action='store_true', default=True,
-                       help='Enable prompt enhancement (default: True)')
+    parser.add_argument('--use_reprompt', action='store_true', default=False,
+                       help='Enable prompt enhancement (default: False)')
 
-    parser.add_argument('--use_refiner', action='store_true', default=True,
-                       help='Enable refiner model (default: True)')
-    
-    parser.add_argument('--shift', type=float, default=5.0,
-                       help='Shift parameter (default: 5.0)')
+    parser.add_argument('--use_refiner', action='store_true', default=False,
+                       help='Enable refiner model (default: False)')
     
     parser.add_argument('--seed', type=int, default=649151,
                        help='Random seed for generation (default: 649151)')
+
+    parser.add_argument('--shift', type=float, default=5.0,
+                       help='Shift parameter (default: 5.0)')
     
     parser.add_argument('--width', type=int, default=2048,
                        help='Image width (default: 2048)')
@@ -59,7 +59,17 @@ def parse_args():
 
     parser.add_argument('--use_taylorseer_lite', action='store_true', default=True,
                        help='Enable TaylorSeer Lite (default: True)')
-    
+
+    parser.add_argument('--use_smoothing', action='store_true', default=False,
+                       help='Enable smoothing for TaylorSeer (default: False)')
+
+    parser.add_argument('--smoothing_method', type=str, default='exponential',
+                       choices=['exponential', 'moving_average'],
+                       help='Smoothing method (default: exponential)')
+
+    parser.add_argument('--smoothing_alpha', type=float, default=0.8,
+                       help='Smoothing alpha for exponential method (default: 0.8)')
+
     return parser.parse_args()
 
 def main():
@@ -87,9 +97,11 @@ def main():
     
     loguru.logger.info(f"Generating image with prompt: {args.prompt}")
     loguru.logger.info(f"Parameters: reprompt={args.use_reprompt}, refiner={args.use_refiner}, shift={args.shift}, seed={args.seed}")
+    if args.use_taylorseer_lite and args.use_smoothing:
+        loguru.logger.info(f"Smoothing: method={args.smoothing_method}, alpha={args.smoothing_alpha}")
     # Determine number of inference steps based on model type
     num_inference_steps = 8 if "distilled" in args.model_name else 50
-    
+
     image = pipe(
         prompt=args.prompt,
         # Examples of supported resolutions and aspect ratios for HunyuanImage-2.1:
@@ -107,6 +119,9 @@ def main():
         guidance_scale=args.guidance_scale,
         shift=args.shift,
         seed=args.seed,
+        use_smoothing=args.use_smoothing,
+        smoothing_method=args.smoothing_method,
+        smoothing_alpha=args.smoothing_alpha,
     )
     
     # Performance measurement and reporting
