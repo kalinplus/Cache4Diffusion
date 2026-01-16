@@ -1,9 +1,16 @@
 import torch
 from typing import Optional, Union, Dict
-from types import MethodType
-from taylorseer_lite_hyimage.cache_utils import cal_type
-from taylorseer_lite_hyimage.taylorseer_utils import derivative_approximation, taylor_formula, taylor_cache_init
 import loguru
+from types import MethodType
+from scripts.taylorseer_lite_hyimage.cache_utils import cal_type
+from scripts.taylorseer_lite_hyimage.taylorseer_utils import (
+    derivative_approximation,
+    derivative_approximation_with_smoothing,
+    shift_cache_history,
+    taylor_formula,
+    taylor_cache_init
+)
+
 def apply_taylorseer_lite_hyimage_forward(model):
     """
     Apply TaylorSeer Lite HyImage forward.
@@ -164,10 +171,21 @@ def apply_taylorseer_lite_hyimage_forward(model):
                         features_list.append(x[:, :img_seq_len, ...])
 
             img = x[:, :img_seq_len, ...]
-    
+
             # Final layer
             img = self.final_layer(img, vec)
-            derivative_approximation(cache_dic, current, img)
+
+            if cache_dic.get('use_smoothing', False):
+                shift_cache_history(cache_dic, current)
+                derivative_approximation_with_smoothing(
+                    cache_dic=cache_dic,
+                    current=current,
+                    feature=img,
+                    smoothing_method=cache_dic.get('smoothing_method', 'exponential'),
+                    alpha=cache_dic.get('smoothing_alpha', 0.8)
+                )
+            else:
+                derivative_approximation(cache_dic, current, img)
     
         elif current['type'] == 'Taylor':
             img = taylor_formula(cache_dic, current)
