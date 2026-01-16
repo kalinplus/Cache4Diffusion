@@ -70,7 +70,8 @@ def load_text_encoder(
     if text_encoder_type == 'llm':
         text_encoder = AutoModelForVision2Seq.from_pretrained(
             text_encoder_path,
-            torch_dtype="auto"
+            torch_dtype="auto",
+            local_files_only=True
         )
     else:
         raise ValueError(f"Unsupported text encoder type: {text_encoder_type}")
@@ -109,7 +110,7 @@ def load_tokenizer(
 
     if tokenizer_type == "llm":
         tokenizer = AutoTokenizer.from_pretrained(
-            tokenizer_path, use_fast=False, padding_side=padding_side, trust_remote_code=True)
+            tokenizer_path, use_fast=False, padding_side=padding_side, trust_remote_code=True, local_files_only=True)
     else:
         raise ValueError(f"Unsupported tokenizer type: {tokenizer_type}")
 
