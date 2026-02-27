@@ -2,9 +2,11 @@
 
 export CUDA_VISIBLE_DEVICES='0'
 export TOKENIZERS_PARALLELISM=false
+export PYTHONPATH="/home/hkl/Cache4Diffusion:${PYTHONPATH:-}"
+export DIFFUSERS_ATTN_BACKEND=flash
 echo $CUDA_VISIBLE_DEVICES
 
-model="/data/public/models/hunyuanvideo-community/HunyuanVideo"
+model="/mnt/data0/pretrained_models/hunyuanvideo-community/HunyuanVideo"
 
 python hunyuan_video/taylorseer_hunyuan_video/diffusers_taylorseer_hunyuan_video.py \
     --prompt "A beautiful sunrise over the mountains" \

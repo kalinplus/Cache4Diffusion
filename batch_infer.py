@@ -1,22 +1,29 @@
 import argparse
 import os
-import re
 import time
 from typing import List, Optional
 
 import torch
 
-from inference_utils import get_torch_dtype, setup_pipeline
+from inference_utils import get_torch_dtype, setup_pipeline, sanitize_filename
+
+# Maps model_name -> the guidance scale kwarg accepted by that pipeline
+_GUIDANCE_KWARG = {
+    "flux": "guidance_scale",
+    "qwen_image": "true_cfg_scale",
+}
+
+# Models that require device_map='cuda' loading instead of .to(device)
+_USE_DEVICE_MAP = {"qwen_image"}
 
 
-def sanitize_filename(text: str, max_length: int = 80) -> str:
-    text = re.sub(r"\s+", " ", text).strip()
-    text = text.replace("/", "-")
-    text = re.sub(r"[^\w\-\s]", "", text)
-    text = text.replace(" ", "_")
-    if len(text) == 0:
-        text = "prompt"
-    return text[:max_length]
+def read_prompts(prompt_file: str, max_images: Optional[int] = None) -> List[str]:
+    with open(prompt_file, "r", encoding="utf-8") as f:
+        lines = [line.strip() for line in f.readlines()]
+    prompts = [line for line in lines if len(line) > 0]
+    if max_images is not None:
+        prompts = prompts[:max_images]
+    return prompts
 
 
 def parse_args() -> argparse.Namespace:
@@ -36,20 +43,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--height", type=int, default=1024)
     parser.add_argument("--width", type=int, default=1024)
     parser.add_argument("--guidance_scale", type=float, default=7.5)
+    parser.add_argument("--negative_prompt", type=str, default=None)
     parser.add_argument("--max_images", type=int, default=None)
     parser.add_argument("--strategy", type=str, default="taylorseer", choices=["taylorseer"])
     parser.add_argument("--model_name", type=str, default="flux",
-                        help="Adapter name for patch_model_with_cache, e.g. 'flux' or 'qwen_image'.")
+                        help="Adapter name: 'flux' or 'qwen_image'.")
     return parser.parse_args()
-
-
-def read_prompts(prompt_file: str, max_images: Optional[int] = None) -> List[str]:
-    with open(prompt_file, "r", encoding="utf-8") as f:
-        lines = [line.strip() for line in f.readlines()]
-    prompts = [line for line in lines if len(line) > 0]
-    if max_images is not None:
-        prompts = prompts[:max_images]
-    return prompts
 
 
 def main() -> None:
@@ -64,15 +63,17 @@ def main() -> None:
     if args.enable_cpu_offload:
         raise NotImplementedError("CPU offload is not supported for TaylorSeer yet.")
 
+    use_device_map = args.model_name in _USE_DEVICE_MAP
     print(f"Loading pipeline: {args.model} (dtype={torch_dtype}, device={args.device})")
     pipeline = setup_pipeline(args.model, int(args.steps), args.strategy, args.model_name,
-                              torch_dtype, args.device)
+                              torch_dtype, args.device, use_device_map=use_device_map)
 
     prompts = read_prompts(args.prompt_file, args.max_images)
     if len(prompts) == 0:
         print("No prompts found. Exiting.")
         return
 
+    guidance_kwarg = _GUIDANCE_KWARG.get(args.model_name, "guidance_scale")
     total_time_s = 0.0
     is_cuda = args.device == "cuda" and torch.cuda.is_available()
     if is_cuda:
@@ -90,14 +91,17 @@ def main() -> None:
         else:
             start_time = time.time()
 
-        image = pipeline(
-            prompt,
-            num_inference_steps=int(args.steps),
-            generator=generator,
-            height=args.height,
-            width=args.width,
-            guidance_scale=float(args.guidance_scale),
-        ).images[0]
+        call_kwargs = {
+            "num_inference_steps": int(args.steps),
+            "generator": generator,
+            "height": args.height,
+            "width": args.width,
+            guidance_kwarg: float(args.guidance_scale),
+        }
+        if args.negative_prompt:
+            call_kwargs["negative_prompt"] = args.negative_prompt
+
+        image = pipeline(prompt, **call_kwargs).images[0]
 
         if is_cuda:
             end.record()
@@ -123,4 +127,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

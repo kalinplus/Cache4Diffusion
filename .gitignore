@@ -47,3 +47,5 @@ taylorseer/samples
 /eval/
 qwen_image/taylorseer_qwen_image/eval/geneval_outputs
 qwen_image/visualize
+REFACTORING_ANALYSIS.md
+REFACTORING_PROMPT.md
