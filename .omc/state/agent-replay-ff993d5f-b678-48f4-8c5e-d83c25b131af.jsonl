@@ -1,0 +1,5 @@
+{"t":0,"agent":"aae431c","agent_type":"architect","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aae431c","agent_type":"architect","event":"agent_stop","success":true,"duration_ms":966649}
+{"t":0,"agent":"a999f27","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"ac3db13","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"oh-my-claudecode:omc-setup"}

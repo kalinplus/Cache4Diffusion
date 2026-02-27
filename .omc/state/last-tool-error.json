@@ -1,0 +1,7 @@
+{
+  "tool_name": "Grep",
+  "tool_input_preview": "{\"pattern\":\"ctx\\\\.step \\\\+= 1\",\"path\":\"/home/hkl/Cache4Diffusion/model_adapters\",\"output_mode\":\"content\",\"-B\":1,\"-A\":1,\"-n\":true}",
+  "error": "spawn /home/hkl/.node/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg ENOENT",
+  "timestamp": "2026-02-27T03:53:00.038Z",
+  "retry_count": 1
+}

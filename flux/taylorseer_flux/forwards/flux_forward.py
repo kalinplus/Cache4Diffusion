@@ -12,7 +12,7 @@ from diffusers.utils import USE_PEFT_BACKEND, is_torch_version, logging, scale_l
 import torch
 import numpy as np
 
-from cache_functions import cache_init, cal_type
+from flux.taylorseer_flux.cache_functions import cache_init, cal_type
 
 logger = logging.get_logger(__name__)
 

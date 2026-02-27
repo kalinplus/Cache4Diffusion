@@ -1,8 +1,9 @@
-local_model_path="/data/public/models/FLUX.1-dev"
+local_model_path="/mnt/data0/pretrained_models/black-forest-labs/FLUX.1-dev"
 model_id="black-forest-labs/FLUX.1-dev"
-cd flux
+
 export CUDA_VISIBLE_DEVICES='5,7'
-python taylorseer_flux/diffusers_taylorseer_flux.py \
+export PYTHONPATH="/home/hkl/Cache4Diffusion:${PYTHONPATH:-}"
+/home/hkl/miniconda3/envs/qwenimage/bin/python flux/taylorseer_flux/diffusers_taylorseer_flux.py \
     --model "$local_model_path" \
     --steps 50 \
     --seed 42 \
