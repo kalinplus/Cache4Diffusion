@@ -27,11 +27,15 @@ def get_sorted_image_files(folder_path):
         if filename.lower().endswith((".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")):
             image_files.append(filename)
     
-    # Natural sort by number in filename
-    # Supports formats like: HunyuanImage_0067_... or TaylorSeer_0067_... or img_0067...
+    # Natural sort by prompt index in filename
+    # Supports multiple formats:
+    # - Origin: HunyuanImage_0000_Aredcoloredcar.png
+    # - Naive TS: TS_no_smooth_N4O1F3_0000_Aredcoloredcar.png
+    # - Exponential: TS_exp_N4O1F3_alpha_0.8_0000_Aredcoloredcar.png
+    # - Moving Average: TS_ma_N4O1F3_alpha_0.8_0000_Aredcoloredcar.png
     def natural_sort_key(filename):
-        # Match patterns like HunyuanImage_0067_, TaylorSeer_0067_, or img_0067
-        match = re.search(r'[_-](\d+)[_.]', filename)
+        # Match 4-digit prompt index (0000-0199 for DrawBench200)
+        match = re.search(r'[_-](\d{4})[_.]', filename)
         return int(match.group(1)) if match else 0
     
     return sorted(image_files, key=natural_sort_key)
@@ -104,20 +108,38 @@ def evaluate_all_metrics(test_folder, prompt_file_path=None, reference_folder=No
             img_path = os.path.join(test_folder, filename)
             img_pil = Image.open(img_path).convert("RGB")
 
-            # Extract prompt index from filename (e.g., 0067 from HunyuanImage_0067_...)
-            match = re.search(r'[_-](\d+)[_.]', filename)
-            prompt_idx = int(match.group(1)) if match else None
+            # Extract prompt index from filename
+            # Supports multiple formats:
+            # - Origin: HunyuanImage_0000_Aredcoloredcar.png
+            # - Naive TS: TS_no_smooth_N4O1F3_0000_Aredcoloredcar.png
+            # - Exponential: TS_exp_N4O1F3_alpha_0.8_0000_Aredcoloredcar.png
+            # - Moving Average: TS_ma_N4O1F3_alpha_0.8_0000_Aredcoloredcar.png
+            prompt_idx = None
+            # Try to match 4-digit number (0000-0199 for DrawBench200)
+            match = re.search(r'[_-](\d{4})[_.]', filename)
+            if match:
+                prompt_idx = int(match.group(1))
+
+            # Generate reference filename based on test filename
+            # Reference files use origin format: HunyuanImage_XXXX_description.png
+            ref_filename = None
+            if prompt_idx is not None:
+                # Extract description part after the index
+                match_desc = re.search(r'\d{4}_(.+)\.png$', filename)
+                if match_desc:
+                    description = match_desc.group(1)
+                    ref_filename = f"HunyuanImage_{prompt_idx:04d}_{description}"
 
             # CLIP Score and ImageReward (require prompts)
             if prompt_idx is not None and prompt_idx < len(prompts):
                 prompt = prompts[prompt_idx]
-                
+
                 # CLIP Score
                 with torch.no_grad():
                     inputs = clip_processor(text=prompt, images=img_pil, return_tensors="pt", padding=True, truncation=True).to(device)
                     outputs = clip_model(**inputs)
                     clip_scores.append(outputs.logits_per_image.item())
-                
+
                 # ImageReward
                 if imagereward_model:
                     with torch.no_grad():
@@ -126,28 +148,28 @@ def evaluate_all_metrics(test_folder, prompt_file_path=None, reference_folder=No
                         inputs = imagereward_model.blip.tokenizer([prompt], padding='max_length', truncation=True, max_length=512, return_tensors="pt").to(device)
                         score = imagereward_model.score_gard(inputs.input_ids, inputs.attention_mask, img_reward)
                         imagereward_scores.append(score.item())
-            
+
             # Quality metrics (require reference)
-            if reference_folder:
-                ref_path = os.path.join(reference_folder, filename)
+            if reference_folder and ref_filename:
+                ref_path = os.path.join(reference_folder, ref_filename)
                 if os.path.exists(ref_path):
                     img_cv = cv2.imread(img_path)
                     ref_cv = cv2.imread(ref_path)
-                    
+
                     if img_cv is not None and ref_cv is not None:
                         # Resize if needed
                         if img_cv.shape != ref_cv.shape:
                             ref_cv = cv2.resize(ref_cv, (img_cv.shape[1], img_cv.shape[0]))
-                        
+
                         # Calculate metrics
                         psnr_values.append(calculate_psnr(img_cv, ref_cv))
                         ssim_values.append(calculate_ssim(img_cv, ref_cv))
-                        
+
                         with torch.no_grad():
                             img_lpips = preprocess_for_lpips(img_cv).to(device)
                             ref_lpips = preprocess_for_lpips(ref_cv).to(device)
                             lpips_values.append(lpips_model(img_lpips, ref_lpips).item())
-        
+
         except Exception as e:
             continue
     
@@ -170,7 +192,7 @@ def main():
     parser = argparse.ArgumentParser(description='Unified metrics evaluation')
     parser.add_argument('--test_folder', type=str, required=True, help='Test images folder')
     parser.add_argument('--prompt_file', type=str, default="prompts/DrawBench200.txt", help='Prompts file')
-    parser.add_argument('--reference_folder', type=str, default="outputs/origin/with_refiner", help='Reference images folder for quality metrics')
+    parser.add_argument('--reference_folder', type=str, default="outputs/origin/without_refiner", help='Reference images folder for quality metrics')
     parser.add_argument('--clip_model_path', type=str, default="/data/public/.cache/huggingface/hub/models--laion--CLIP-ViT-g-14-laion2B-s12B-b42K/snapshots/4b0305adc6802b2632e11cbe6606a9bdd43d35c9") # forexample, /data/public/models/laion/CLIP-ViT-g-14-laion2B-s12B-b42K
     parser.add_argument('--imagereward_model_path', type=str, default="/data/public/.cache/huggingface/hub/models--zai-org--ImageReward/snapshots/5736be03b2652728fb87788c9797b0570450ab72")
 
