@@ -41,6 +41,9 @@ def create_caching_pipeline(
     elif model_name == 'hunyuan_video':
         from model_adapters.adapters import HunyuanVideoAdapter
         adapter = HunyuanVideoAdapter()
+    elif model_name == 'hunyuan_image':
+        from model_adapters.adapters import HunyuanImageAdapter
+        adapter = HunyuanImageAdapter()
     else:
         raise ValueError(f"Unknown model: {model_name}")
 

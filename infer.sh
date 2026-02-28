@@ -17,8 +17,12 @@ elif [ "$MODEL_NAME" = "hunyuan_video" ]; then
     model_path="/mnt/data0/pretrained_models/hunyuanvideo-community/HunyuanVideo"  # TODO: fill in model path
     dtype="bfloat16"
     extra_args="--video_length 19 --video_size 544 960 --fps 4"
+elif [ "$MODEL_NAME" = "hunyuan_image" ]; then
+    model_path="/mnt/data0/pretrained_models/tencent/HunyuanImage-2.1"
+    dtype="bfloat16"
+    extra_args="--width 1024 --height 1024"
 else
-    echo "Unknown MODEL_NAME: $MODEL_NAME (supported: flux, qwen_image, hunyuan_video)"
+    echo "Unknown MODEL_NAME: $MODEL_NAME (supported: flux, qwen_image, hunyuan_video, hunyuan_image)"
     exit 1
 fi
 

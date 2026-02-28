@@ -2,8 +2,9 @@
 # Usage: MODEL_NAME=flux bash infer.sh
 #        MODEL_NAME=qwen_image bash infer.sh
 #        MODEL_NAME=hunyuan_video bash infer.sh
+#        MODEL_NAME=hunyuan_image bash test.sh
 
-MODEL_NAME="${MODEL_NAME:-hunyuan_video}"
+MODEL_NAME="${MODEL_NAME:-hunyuan_image}"
 
 if [ "$MODEL_NAME" = "flux" ]; then
     model_path="/mnt/data0/pretrained_models/black-forest-labs/FLUX.1-dev"
@@ -17,12 +18,16 @@ elif [ "$MODEL_NAME" = "hunyuan_video" ]; then
     model_path="/mnt/data0/pretrained_models/hunyuanvideo-community/HunyuanVideo"  # TODO: fill in model path
     dtype="bfloat16"
     extra_args="--video_length 9 --video_size 256 256 --fps 8"
+elif [ "$MODEL_NAME" = "hunyuan_image" ]; then
+    model_path="/mnt/data0/pretrained_models/tencent/HunyuanImage-2.1"
+    dtype="bfloat16"
+    extra_args="--width 1024 --height 1024"
 else
-    echo "Unknown MODEL_NAME: $MODEL_NAME (supported: flux, qwen_image, hunyuan_video)"
+    echo "Unknown MODEL_NAME: $MODEL_NAME (supported: flux, qwen_image, hunyuan_video, hunyuan_image)"
     exit 1
 fi
 
-export CUDA_VISIBLE_DEVICES='5,7'
+export CUDA_VISIBLE_DEVICES='6,7'
 export PYTHONPATH="/home/hkl/Cache4Diffusion:${PYTHONPATH:-}"
 export DIFFUSERS_ATTN_BACKEND=flash
 
