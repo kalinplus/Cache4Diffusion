@@ -10,8 +10,6 @@ import lpips
 from skimage.metrics import structural_similarity as ssim
 from transformers import CLIPProcessor, CLIPModel
 import ImageReward as RM
-import torchvision.transforms.v2.functional as TF
-import torchvision.transforms.v2 as T
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
@@ -27,11 +25,11 @@ def get_sorted_image_files(folder_path):
         if filename.lower().endswith((".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")):
             image_files.append(filename)
     
-    # Natural sort by number in filename
+    # Natural sort: extract all numbers from filename for robust ordering
     def natural_sort_key(filename):
-        match = re.search(r'img_(\d+)\.', filename)
-        return int(match.group(1)) if match else 0
-    
+        parts = re.split(r'(\d+)', filename)
+        return [int(p) if p.isdigit() else p.lower() for p in parts]
+
     return sorted(image_files, key=natural_sort_key)
 
 def calculate_psnr(img1, img2):
@@ -76,73 +74,62 @@ def evaluate_all_metrics(test_folder, prompt_file_path=None, reference_folder=No
     # LPIPS model
     lpips_model = lpips.LPIPS(net='alex', verbose=False).to(device)
     
-    # ImageReward transform
-    reward_transform = T.Compose([
-        T.Resize(224, interpolation=T.InterpolationMode.BICUBIC),
-        T.CenterCrop(224),
-        T.ToImage(),
-        T.ToDtype(torch.float32, scale=True),
-        T.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
-    ])
-    
     # Load data
     image_files = get_sorted_image_files(test_folder)
     prompts = load_prompts(prompt_file_path) if prompt_file_path else []
-    
+    ref_files = get_sorted_image_files(reference_folder) if reference_folder else []
+
     # Initialize score lists
     clip_scores = []
     imagereward_scores = []
     psnr_values = []
     ssim_values = []
     lpips_values = []
-    
+
     # Process images
-    for i, filename in enumerate(image_files):
+    for i, filename in enumerate(tqdm(image_files, desc="Evaluating")):
         try:
             img_path = os.path.join(test_folder, filename)
             img_pil = Image.open(img_path).convert("RGB")
-            
+
             # CLIP Score and ImageReward (require prompts)
             if i < len(prompts):
                 prompt = prompts[i]
-                
+
                 # CLIP Score
                 with torch.no_grad():
                     inputs = clip_processor(text=prompt, images=img_pil, return_tensors="pt", padding=True, truncation=True).to(device)
                     outputs = clip_model(**inputs)
                     clip_scores.append(outputs.logits_per_image.item())
-                
-                # ImageReward
+
+                # ImageReward (use built-in score() which handles preprocessing)
                 if imagereward_model:
                     with torch.no_grad():
-                        img_tensor = TF.pil_to_tensor(img_pil).unsqueeze(0).to(device)
-                        img_reward = reward_transform(img_tensor)
-                        inputs = imagereward_model.blip.tokenizer([prompt], padding='max_length', truncation=True, max_length=512, return_tensors="pt").to(device)
-                        score = imagereward_model.score_gard(inputs.input_ids, inputs.attention_mask, img_reward)
-                        imagereward_scores.append(score.item())
-            
-            # Quality metrics (require reference)
-            if reference_folder:
-                ref_path = os.path.join(reference_folder, filename)
-                if os.path.exists(ref_path):
-                    img_cv = cv2.imread(img_path)
-                    ref_cv = cv2.imread(ref_path)
-                    
-                    if img_cv is not None and ref_cv is not None:
-                        # Resize if needed
-                        if img_cv.shape != ref_cv.shape:
-                            ref_cv = cv2.resize(ref_cv, (img_cv.shape[1], img_cv.shape[0]))
-                        
-                        # Calculate metrics
-                        psnr_values.append(calculate_psnr(img_cv, ref_cv))
-                        ssim_values.append(calculate_ssim(img_cv, ref_cv))
-                        
-                        with torch.no_grad():
-                            img_lpips = preprocess_for_lpips(img_cv).to(device)
-                            ref_lpips = preprocess_for_lpips(ref_cv).to(device)
-                            lpips_values.append(lpips_model(img_lpips, ref_lpips).item())
-        
+                        reward = imagereward_model.score(prompt, img_pil)
+                        imagereward_scores.append(reward)
+
+            # Quality metrics: match by sorted index, not filename
+            if reference_folder and i < len(ref_files):
+                ref_path = os.path.join(reference_folder, ref_files[i])
+                img_cv = cv2.imread(img_path)
+                ref_cv = cv2.imread(ref_path)
+
+                if img_cv is not None and ref_cv is not None:
+                    # Resize if needed
+                    if img_cv.shape != ref_cv.shape:
+                        ref_cv = cv2.resize(ref_cv, (img_cv.shape[1], img_cv.shape[0]))
+
+                    # Calculate metrics
+                    psnr_values.append(calculate_psnr(img_cv, ref_cv))
+                    ssim_values.append(calculate_ssim(img_cv, ref_cv))
+
+                    with torch.no_grad():
+                        img_lpips = preprocess_for_lpips(img_cv).to(device)
+                        ref_lpips = preprocess_for_lpips(ref_cv).to(device)
+                        lpips_values.append(lpips_model(img_lpips, ref_lpips).item())
+
         except Exception as e:
+            print(f"Warning: failed on {filename}: {e}")
             continue
     
     # Calculate averages
@@ -163,10 +150,11 @@ def evaluate_all_metrics(test_folder, prompt_file_path=None, reference_folder=No
 def main():
     parser = argparse.ArgumentParser(description='Unified metrics evaluation')
     parser.add_argument('--test_folder', type=str, required=True, help='Test images folder')
-    parser.add_argument('--prompt_file', type=str, default="prompts/DrawBench200.txt", help='Prompts file')
-    parser.add_argument('--reference_folder', type=str, default="samples/origin", help='Reference images folder for quality metrics')
-    parser.add_argument('--clip_model_path', type=str, default="/data/public/.cache/huggingface/hub/models--laion--CLIP-ViT-g-14-laion2B-s12B-b42K/snapshots/4b0305adc6802b2632e11cbe6606a9bdd43d35c9") # forexample, /data/public/models/laion/CLIP-ViT-g-14-laion2B-s12B-b42K
-    parser.add_argument('--imagereward_model_path', type=str, default="/data/public/.cache/huggingface/hub/models--zai-org--ImageReward/snapshots/5736be03b2652728fb87788c9797b0570450ab72")
+    parser.add_argument('--prompt_file', type=str, default="assets/prompts/DrawBench200.txt", help='Prompts file')
+    parser.add_argument('--reference_folder', type=str, default=None, help='Reference images folder for quality metrics')
+    # forexample, /data/public/models/laion/CLIP-ViT-g-14-laion2B-s12B-b42K
+    parser.add_argument('--clip_model_path', type=str, default="/mnt/data0/pretrained_models/laion/CLIP-ViT-g-14-laion2B-s12B-b42K") 
+    parser.add_argument('--imagereward_model_path', type=str, default="/mnt/data0/pretrained_models/zai-org/ImageReward")
 
     args = parser.parse_args()
 
