@@ -9,6 +9,7 @@ _GUIDANCE_KWARG = {
     "flux": "guidance_scale",
     "qwen_image": "true_cfg_scale",
     "hunyuan_video": "guidance_scale",
+    "hunyuan_image": "guidance_scale",
 }
 
 # Models that require device_map='cuda' loading instead of .to(device)
@@ -38,7 +39,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", type=str, default="cuda", choices=["cuda", "cpu"])
     parser.add_argument("--strategy", type=str, default="taylorseer", choices=["taylorseer"])
     parser.add_argument("--model_name", type=str, default="flux",
-                        help="Adapter name: 'flux', 'qwen_image', 'hunyuan_video', ...")
+                        help="Adapter name: 'flux', 'qwen_image', 'hunyuan_video', 'hunyuan_image', ...")
     parser.add_argument("--enable_cpu_offload", action="store_true")
     # Video-specific args (ignored for image models)
     parser.add_argument("--video_length", type=int, default=None,
@@ -48,6 +49,11 @@ def parse_args() -> argparse.Namespace:
                         help="Video resolution as HEIGHT WIDTH (video models only)")
     parser.add_argument("--fps", type=int, default=None,
                         help="Frames per second for saved video (video models only)")
+    # Image size args (used by HunyuanImage and other models that accept height/width)
+    parser.add_argument("--width", type=int, default=None,
+                        help="Image width (default: model default)")
+    parser.add_argument("--height", type=int, default=None,
+                        help="Image height (default: model default)")
     return parser.parse_args()
 
 
@@ -78,6 +84,7 @@ def main() -> None:
         start_time = time.time()
 
     guidance_kwarg = _GUIDANCE_KWARG.get(args.model_name, "guidance_scale")
+
     call_kwargs = {
         "num_inference_steps": int(args.steps),
         "generator": torch.Generator("cpu").manual_seed(int(args.seed)),
@@ -87,6 +94,10 @@ def main() -> None:
         call_kwargs["negative_prompt"] = args.negative_prompt
     elif args.model_name in _DEFAULT_NEGATIVE_PROMPT:
         call_kwargs["negative_prompt"] = _DEFAULT_NEGATIVE_PROMPT[args.model_name]
+    if args.height is not None:
+        call_kwargs["height"] = args.height
+    if args.width is not None:
+        call_kwargs["width"] = args.width
 
     is_video = args.model_name in _VIDEO_MODELS
     if is_video:

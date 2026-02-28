@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1772161343776,
+  "lastScanned": 1772268469150,
   "projectRoot": "/home/hkl/Cache4Diffusion",
   "techStack": {
     "languages": [],
@@ -38,7 +38,7 @@
       "path": "HunyuanImage-2.1",
       "purpose": null,
       "fileCount": 10,
-      "lastAccessed": 1772161343769,
+      "lastAccessed": 1772268469143,
       "keyFiles": [
         "README.md",
         "README_CN.md",
@@ -51,7 +51,7 @@
       "path": "__pycache__",
       "purpose": null,
       "fileCount": 3,
-      "lastAccessed": 1772161343769,
+      "lastAccessed": 1772268469143,
       "keyFiles": [
         "batch_infer.cpython-310.pyc",
         "infer.cpython-310.pyc",
@@ -62,7 +62,7 @@
       "path": "ascend",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1772161343769,
+      "lastAccessed": 1772268469143,
       "keyFiles": [
         "requirements.txt"
       ]
@@ -71,14 +71,14 @@
       "path": "assets",
       "purpose": "Static assets",
       "fileCount": 0,
-      "lastAccessed": 1772161343769,
+      "lastAccessed": 1772268469144,
       "keyFiles": []
     },
     "caching_core": {
       "path": "caching_core",
       "purpose": null,
       "fileCount": 3,
-      "lastAccessed": 1772161343772,
+      "lastAccessed": 1772268469146,
       "keyFiles": [
         "__init__.py",
         "base.py",
@@ -89,21 +89,21 @@
       "path": "dit",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1772161343772,
+      "lastAccessed": 1772268469146,
       "keyFiles": []
     },
     "flux": {
       "path": "flux",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1772161343772,
+      "lastAccessed": 1772268469147,
       "keyFiles": []
     },
     "hunyuan_video": {
       "path": "hunyuan_video",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1772161343772,
+      "lastAccessed": 1772268469147,
       "keyFiles": [
         "README.md"
       ]
@@ -112,7 +112,7 @@
       "path": "model_adapters",
       "purpose": null,
       "fileCount": 4,
-      "lastAccessed": 1772161343772,
+      "lastAccessed": 1772268469147,
       "keyFiles": [
         "__init__.py",
         "base.py",
@@ -123,21 +123,21 @@
     "outputs": {
       "path": "outputs",
       "purpose": null,
-      "fileCount": 8,
-      "lastAccessed": 1772161343773,
+      "fileCount": 9,
+      "lastAccessed": 1772268469147,
       "keyFiles": [
         "TaylorSeer_A_beautiful_painting_of_a_sunset_over_a_calm_ocean_with_a_small_boat_in_the_fore.png",
         "TaylorSeer_A_cute_cartoon-style_anthropomorphic_penguin_plush_toy_with_fluffy_fur_standing_in_a_painting_studio.png",
         "TaylorSeer_flux_A_beautiful_painting_of_a_sunset_over_a_calm_ocean_with_a_small_boat_in_the_fore.png",
-        "TaylorSeer_qwen_image_A_beautiful_painting_of_a_sunset_over_a_calm_ocean_with_a_small_boat_in_the_fore.png",
-        "evaluation_results.txt"
+        "TaylorSeer_hunyuan_video_A_beautiful_painting_of_a_sunset_over_a_calm_ocean_with_a_small_boat_in_the_fore.mp4",
+        "TaylorSeer_qwen_image_A_beautiful_painting_of_a_sunset_over_a_calm_ocean_with_a_small_boat_in_the_fore.png"
       ]
     },
     "qwen_image": {
       "path": "qwen_image",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1772161343773,
+      "lastAccessed": 1772268469147,
       "keyFiles": [
         "check_smoothing_config.py"
       ]
@@ -146,7 +146,7 @@
       "path": "taylorseer",
       "purpose": null,
       "fileCount": 9,
-      "lastAccessed": 1772161343773,
+      "lastAccessed": 1772268469147,
       "keyFiles": [
         "batch_evaluate.sh",
         "evaluate.py",
@@ -159,7 +159,7 @@
       "path": "taylorseer_core",
       "purpose": null,
       "fileCount": 5,
-      "lastAccessed": 1772161343773,
+      "lastAccessed": 1772268469148,
       "keyFiles": [
         "__init__.py",
         "config.py",
@@ -172,7 +172,7 @@
       "path": "HunyuanImage-2.1/assets",
       "purpose": "Static assets",
       "fileCount": 11,
-      "lastAccessed": 1772161343773,
+      "lastAccessed": 1772268469148,
       "keyFiles": [
         "WECHAT.md",
         "comparison.png",
@@ -183,7 +183,7 @@
       "path": "assets/examples",
       "purpose": "Example code",
       "fileCount": 2,
-      "lastAccessed": 1772161343774,
+      "lastAccessed": 1772268469148,
       "keyFiles": [
         "FLUX.png",
         "Qwen-Image.png"
@@ -193,7 +193,7 @@
       "path": "flux/scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 2,
-      "lastAccessed": 1772161343774,
+      "lastAccessed": 1772268469149,
       "keyFiles": [
         "infer_taylorseer_multi_flux.sh",
         "infer_taylorseer_single_flux.sh"
@@ -203,7 +203,7 @@
       "path": "hunyuan_video/scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 2,
-      "lastAccessed": 1772161343775,
+      "lastAccessed": 1772268469149,
       "keyFiles": [
         "infer_taylorseer_multi_hunyuanvideo.sh",
         "infer_taylorseer_single_hunyuanvideo.sh"
@@ -213,7 +213,7 @@
       "path": "qwen_image/scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 2,
-      "lastAccessed": 1772161343776,
+      "lastAccessed": 1772268469150,
       "keyFiles": [
         "infer_taylorseer_multi_qwen_image.sh",
         "infer_taylorseer_single_qwen_image.sh"
@@ -222,135 +222,63 @@
   },
   "hotPaths": [
     {
-      "path": "model_adapters/adapters/hunyuan_video_adapter.py",
-      "accessCount": 12,
-      "lastAccessed": 1772164369319,
+      "path": "infer.py",
+      "accessCount": 9,
+      "lastAccessed": 1772269356027,
       "type": "file"
     },
     {
-      "path": "model_adapters/adapters/flux_adapter.py",
-      "accessCount": 5,
-      "lastAccessed": 1772164409918,
-      "type": "file"
-    },
-    {
-      "path": "model_adapters/base.py",
-      "accessCount": 5,
-      "lastAccessed": 1772164418801,
-      "type": "file"
-    },
-    {
-      "path": "infer.sh",
-      "accessCount": 4,
-      "lastAccessed": 1772162471589,
-      "type": "file"
-    },
-    {
-      "path": "inference_utils.py",
-      "accessCount": 3,
-      "lastAccessed": 1772164565325,
+      "path": "model_adapters/adapters/hunyuan_image_adapter.py",
+      "accessCount": 8,
+      "lastAccessed": 1772271335165,
       "type": "file"
     },
     {
       "path": "test.sh",
-      "accessCount": 2,
-      "lastAccessed": 1772162433010,
+      "accessCount": 7,
+      "lastAccessed": 1772271367011,
+      "type": "file"
+    },
+    {
+      "path": "infer.sh",
+      "accessCount": 5,
+      "lastAccessed": 1772271354540,
       "type": "file"
     },
     {
       "path": "CLAUDE.md",
-      "accessCount": 2,
-      "lastAccessed": 1772167268448,
-      "type": "file"
-    },
-    {
-      "path": "hunyuan_video/taylorseer_hunyuan_video/forwards/double_transformer_forward.py",
-      "accessCount": 1,
-      "lastAccessed": 1772161766816,
-      "type": "file"
-    },
-    {
-      "path": "hunyuan_video/taylorseer_hunyuan_video/forwards/single_transformer_forward.py",
-      "accessCount": 1,
-      "lastAccessed": 1772161766857,
-      "type": "file"
-    },
-    {
-      "path": "taylorseer_core/forward_utils.py",
-      "accessCount": 1,
-      "lastAccessed": 1772161806260,
-      "type": "file"
-    },
-    {
-      "path": "infer.py",
-      "accessCount": 1,
-      "lastAccessed": 1772161806294,
-      "type": "file"
-    },
-    {
-      "path": "caching_core/strategies/taylorseer_strategy.py",
-      "accessCount": 1,
-      "lastAccessed": 1772161806335,
+      "accessCount": 3,
+      "lastAccessed": 1772272561417,
       "type": "file"
     },
     {
       "path": "model_adapters/factory.py",
       "accessCount": 1,
-      "lastAccessed": 1772161806369,
+      "lastAccessed": 1772268957653,
       "type": "file"
     },
     {
-      "path": "hunyuan_video/taylorseer_hunyuan_video/forwards/hunyuan_video_forward.py",
+      "path": "model_adapters/adapters/__init__.py",
       "accessCount": 1,
-      "lastAccessed": 1772161855030,
+      "lastAccessed": 1772268957677,
       "type": "file"
     },
     {
-      "path": "hunyuan_video/taylorseer_hunyuan_video/diffusers_taylorseer_hunyuan_video.py",
+      "path": "model_adapters/adapters/flux_adapter.py",
       "accessCount": 1,
-      "lastAccessed": 1772161855072,
+      "lastAccessed": 1772268957718,
       "type": "file"
     },
     {
-      "path": "taylorseer_core/scheduler.py",
+      "path": "inference_utils.py",
       "accessCount": 1,
-      "lastAccessed": 1772161916911,
+      "lastAccessed": 1772269008935,
       "type": "file"
     },
     {
-      "path": "taylorseer_core/math.py",
+      "path": "model_adapters/base.py",
       "accessCount": 1,
-      "lastAccessed": 1772161916945,
-      "type": "file"
-    },
-    {
-      "path": "hunyuan_video/taylorseer_hunyuan_video/cache_functions/cal_type.py",
-      "accessCount": 1,
-      "lastAccessed": 1772161927999,
-      "type": "file"
-    },
-    {
-      "path": "hunyuan_video/taylorseer_hunyuan_video/cache_functions/cache_init.py",
-      "accessCount": 1,
-      "lastAccessed": 1772161928053,
-      "type": "file"
-    },
-    {
-      "path": "caching_core/context.py",
-      "accessCount": 1,
-      "lastAccessed": 1772161928091,
-      "type": "file"
-    },
-    {
-      "path": "model_adapters",
-      "accessCount": 1,
-      "lastAccessed": 1772164025864,
-      "type": "directory"
-    },
-    {
-      "path": "model_adapters/adapters/qwen_image_adapter.py",
-      "accessCount": 1,
-      "lastAccessed": 1772164039169,
+      "lastAccessed": 1772269135145,
       "type": "file"
     }
   ],
