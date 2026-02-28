@@ -526,6 +526,25 @@ MODEL_NAME=qwen_image bash infer.sh
 bash flux/scripts/infer_taylorseer_single_flux.sh
 ```
 
+### Evaluation
+
+`evaluate.py` 计算 5 项指标：CLIP Score, ImageReward, PSNR, SSIM, LPIPS。使用 `eval` conda 环境运行。
+
+```bash
+# 单目录评测
+conda run -n eval python evaluate.py \
+    --test_folder outputs/naive_ts/without_refiner \
+    --reference_folder outputs/origin/without_refiner \
+    --prompt_file assets/prompts/DrawBench200.txt
+
+# 批量评测所有 outputs 子目录
+bash run_eval.sh 0   # 参数为 GPU ID
+```
+
+参考目录匹配规则：按排序索引配对（非文件名），支持跨前缀比较（如 `TaylorSeer_0000_*` vs `HunyuanImage_0000_*`）。
+
+**TODO:** 让 `run_eval.sh` 输出结构化结果（如 CSV/Markdown 表格），省去手动复制。
+
 ### Known Issues / Pitfalls
 
 - `cal_type()` / `force_scheduler()` in `taylorseer_core/scheduler.py` use `current['key']` dict access — `StepContext.__getitem__` handles this
