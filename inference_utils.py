@@ -5,7 +5,6 @@ Model-agnostic pipeline setup, usable by scripts and tests alike.
 
 import re
 import torch
-from diffusers import DiffusionPipeline
 from model_adapters.factory import patch_model_with_cache
 
 def sanitize_filename(text: str, max_length: int = 80) -> str:
@@ -27,7 +26,7 @@ def get_torch_dtype(dtype_name: str) -> torch.dtype:
 
 def setup_pipeline(model_path: str, steps: int, strategy_name: str, model_name: str,
                    dtype: torch.dtype, device: str,
-                   use_device_map: bool = False) -> DiffusionPipeline:
+                   use_device_map: bool = False):
     """Load a diffusers pipeline and apply the caching framework.
 
     Args:
@@ -43,6 +42,7 @@ def setup_pipeline(model_path: str, steps: int, strategy_name: str, model_name: 
     Returns:
         Pipeline ready for inference.
     """
+    from diffusers import DiffusionPipeline
     if use_device_map:
         pipeline = DiffusionPipeline.from_pretrained(
             model_path, torch_dtype=dtype, device_map="cuda"
