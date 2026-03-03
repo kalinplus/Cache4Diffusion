@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1772268469150,
+  "lastScanned": 1772416330884,
   "projectRoot": "/home/hkl/Cache4Diffusion",
   "techStack": {
     "languages": [],
@@ -38,7 +38,7 @@
       "path": "HunyuanImage-2.1",
       "purpose": null,
       "fileCount": 10,
-      "lastAccessed": 1772268469143,
+      "lastAccessed": 1772416330877,
       "keyFiles": [
         "README.md",
         "README_CN.md",
@@ -50,10 +50,11 @@
     "__pycache__": {
       "path": "__pycache__",
       "purpose": null,
-      "fileCount": 3,
-      "lastAccessed": 1772268469143,
+      "fileCount": 4,
+      "lastAccessed": 1772416330877,
       "keyFiles": [
         "batch_infer.cpython-310.pyc",
+        "evaluate.cpython-311.pyc",
         "infer.cpython-310.pyc",
         "inference_utils.cpython-310.pyc"
       ]
@@ -62,7 +63,7 @@
       "path": "ascend",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1772268469143,
+      "lastAccessed": 1772416330878,
       "keyFiles": [
         "requirements.txt"
       ]
@@ -71,14 +72,14 @@
       "path": "assets",
       "purpose": "Static assets",
       "fileCount": 0,
-      "lastAccessed": 1772268469144,
+      "lastAccessed": 1772416330878,
       "keyFiles": []
     },
     "caching_core": {
       "path": "caching_core",
       "purpose": null,
       "fileCount": 3,
-      "lastAccessed": 1772268469146,
+      "lastAccessed": 1772416330878,
       "keyFiles": [
         "__init__.py",
         "base.py",
@@ -89,21 +90,21 @@
       "path": "dit",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1772268469146,
+      "lastAccessed": 1772416330879,
       "keyFiles": []
     },
     "flux": {
       "path": "flux",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1772268469147,
+      "lastAccessed": 1772416330880,
       "keyFiles": []
     },
     "hunyuan_video": {
       "path": "hunyuan_video",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1772268469147,
+      "lastAccessed": 1772416330880,
       "keyFiles": [
         "README.md"
       ]
@@ -112,7 +113,7 @@
       "path": "model_adapters",
       "purpose": null,
       "fileCount": 4,
-      "lastAccessed": 1772268469147,
+      "lastAccessed": 1772416330881,
       "keyFiles": [
         "__init__.py",
         "base.py",
@@ -124,7 +125,7 @@
       "path": "outputs",
       "purpose": null,
       "fileCount": 9,
-      "lastAccessed": 1772268469147,
+      "lastAccessed": 1772416330881,
       "keyFiles": [
         "TaylorSeer_A_beautiful_painting_of_a_sunset_over_a_calm_ocean_with_a_small_boat_in_the_fore.png",
         "TaylorSeer_A_cute_cartoon-style_anthropomorphic_penguin_plush_toy_with_fluffy_fur_standing_in_a_painting_studio.png",
@@ -137,7 +138,7 @@
       "path": "qwen_image",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1772268469147,
+      "lastAccessed": 1772416330881,
       "keyFiles": [
         "check_smoothing_config.py"
       ]
@@ -146,7 +147,7 @@
       "path": "taylorseer",
       "purpose": null,
       "fileCount": 9,
-      "lastAccessed": 1772268469147,
+      "lastAccessed": 1772416330881,
       "keyFiles": [
         "batch_evaluate.sh",
         "evaluate.py",
@@ -159,7 +160,7 @@
       "path": "taylorseer_core",
       "purpose": null,
       "fileCount": 5,
-      "lastAccessed": 1772268469148,
+      "lastAccessed": 1772416330881,
       "keyFiles": [
         "__init__.py",
         "config.py",
@@ -172,7 +173,7 @@
       "path": "HunyuanImage-2.1/assets",
       "purpose": "Static assets",
       "fileCount": 11,
-      "lastAccessed": 1772268469148,
+      "lastAccessed": 1772416330882,
       "keyFiles": [
         "WECHAT.md",
         "comparison.png",
@@ -183,7 +184,7 @@
       "path": "assets/examples",
       "purpose": "Example code",
       "fileCount": 2,
-      "lastAccessed": 1772268469148,
+      "lastAccessed": 1772416330882,
       "keyFiles": [
         "FLUX.png",
         "Qwen-Image.png"
@@ -193,7 +194,7 @@
       "path": "flux/scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 2,
-      "lastAccessed": 1772268469149,
+      "lastAccessed": 1772416330882,
       "keyFiles": [
         "infer_taylorseer_multi_flux.sh",
         "infer_taylorseer_single_flux.sh"
@@ -203,7 +204,7 @@
       "path": "hunyuan_video/scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 2,
-      "lastAccessed": 1772268469149,
+      "lastAccessed": 1772416330883,
       "keyFiles": [
         "infer_taylorseer_multi_hunyuanvideo.sh",
         "infer_taylorseer_single_hunyuanvideo.sh"
@@ -213,7 +214,7 @@
       "path": "qwen_image/scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 2,
-      "lastAccessed": 1772268469150,
+      "lastAccessed": 1772416330883,
       "keyFiles": [
         "infer_taylorseer_multi_qwen_image.sh",
         "infer_taylorseer_single_qwen_image.sh"
@@ -222,63 +223,27 @@
   },
   "hotPaths": [
     {
-      "path": "infer.py",
-      "accessCount": 9,
-      "lastAccessed": 1772269356027,
+      "path": "evaluate.sh",
+      "accessCount": 6,
+      "lastAccessed": 1772418483548,
       "type": "file"
     },
     {
-      "path": "model_adapters/adapters/hunyuan_image_adapter.py",
-      "accessCount": 8,
-      "lastAccessed": 1772271335165,
-      "type": "file"
-    },
-    {
-      "path": "test.sh",
-      "accessCount": 7,
-      "lastAccessed": 1772271367011,
-      "type": "file"
-    },
-    {
-      "path": "infer.sh",
-      "accessCount": 5,
-      "lastAccessed": 1772271354540,
-      "type": "file"
-    },
-    {
-      "path": "CLAUDE.md",
-      "accessCount": 3,
-      "lastAccessed": 1772272561417,
-      "type": "file"
-    },
-    {
-      "path": "model_adapters/factory.py",
+      "path": "run_eval.sh",
       "accessCount": 1,
-      "lastAccessed": 1772268957653,
+      "lastAccessed": 1772416794465,
       "type": "file"
     },
     {
-      "path": "model_adapters/adapters/__init__.py",
+      "path": "run_eval_excel.py",
       "accessCount": 1,
-      "lastAccessed": 1772268957677,
+      "lastAccessed": 1772416976887,
       "type": "file"
     },
     {
-      "path": "model_adapters/adapters/flux_adapter.py",
+      "path": "evaluate.py",
       "accessCount": 1,
-      "lastAccessed": 1772268957718,
-      "type": "file"
-    },
-    {
-      "path": "inference_utils.py",
-      "accessCount": 1,
-      "lastAccessed": 1772269008935,
-      "type": "file"
-    },
-    {
-      "path": "model_adapters/base.py",
-      "accessCount": 1,
-      "lastAccessed": 1772269135145,
+      "lastAccessed": 1772422107310,
       "type": "file"
     }
   ],
