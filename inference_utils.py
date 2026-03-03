@@ -50,7 +50,8 @@ def setup_pipeline(model_path: str, steps: int, strategy_name: str, model_name: 
     else:
         pipeline = DiffusionPipeline.from_pretrained(model_path, torch_dtype=dtype)
     pipeline.transformer.__class__.num_steps = steps
-    patch_model_with_cache(pipeline.transformer, strategy_name=strategy_name, model_name=model_name)
+    if strategy_name != "none":
+        patch_model_with_cache(pipeline.transformer, strategy_name=strategy_name, model_name=model_name)
     if hasattr(pipeline, 'vae'):
         pipeline.vae.enable_tiling()
     if not use_device_map:

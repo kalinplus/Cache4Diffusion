@@ -11,10 +11,20 @@ from inference_utils import get_torch_dtype, setup_pipeline, sanitize_filename
 _GUIDANCE_KWARG = {
     "flux": "guidance_scale",
     "qwen_image": "true_cfg_scale",
+    "hunyuan_video": "guidance_scale",
+    "hunyuan_image": "guidance_scale",
 }
 
 # Models that require device_map='cuda' loading instead of .to(device)
 _USE_DEVICE_MAP = {"qwen_image"}
+
+# Video models: output .frames instead of .images, and accept video-specific kwargs
+_VIDEO_MODELS = {"hunyuan_video"}
+
+# Default negative prompts per model (can be overridden via --negative_prompt)
+_DEFAULT_NEGATIVE_PROMPT = {
+    "qwen_image": "blurry, low resolution, bad anatomy, watermark",
+}
 
 
 def read_prompts(prompt_file: str, max_images: Optional[int] = None) -> List[str]:
@@ -45,9 +55,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--guidance_scale", type=float, default=7.5)
     parser.add_argument("--negative_prompt", type=str, default=None)
     parser.add_argument("--max_images", type=int, default=None)
-    parser.add_argument("--strategy", type=str, default="taylorseer", choices=["taylorseer"])
+    parser.add_argument("--strategy", type=str, default="taylorseer", choices=["taylorseer", "none"],
+                        help="Caching strategy: 'taylorseer' or 'none' (no caching, baseline).")
     parser.add_argument("--model_name", type=str, default="flux",
-                        help="Adapter name: 'flux' or 'qwen_image'.")
+                        help="Adapter name: 'flux', 'qwen_image', 'hunyuan_video', 'hunyuan_image', ...")
     return parser.parse_args()
 
 
@@ -100,8 +111,11 @@ def main() -> None:
         }
         if args.negative_prompt:
             call_kwargs["negative_prompt"] = args.negative_prompt
+        elif args.model_name in _DEFAULT_NEGATIVE_PROMPT:
+            call_kwargs["negative_prompt"] = _DEFAULT_NEGATIVE_PROMPT[args.model_name]
 
-        image = pipeline(prompt, **call_kwargs).images[0]
+        is_video = args.model_name in _VIDEO_MODELS
+        result = pipeline(prompt, **call_kwargs)
 
         if is_cuda:
             end.record()
@@ -112,8 +126,14 @@ def main() -> None:
 
         total_time_s += elapsed_time_s
         safe = sanitize_filename(prompt)
-        save_path = os.path.join(args.outdir, f"{args.prefix}_{index:04d}_{safe}.png")
-        image.save(save_path)
+        if is_video:
+            from diffusers.utils import export_to_video
+            frames = result.frames[0]
+            save_path = os.path.join(args.outdir, f"{args.prefix}_{index:04d}_{safe}.mp4")
+            export_to_video(frames, save_path, fps=8)
+        else:
+            save_path = os.path.join(args.outdir, f"{args.prefix}_{index:04d}_{safe}.png")
+            result.images[0].save(save_path)
         print(f"Saved: {save_path} | time: {elapsed_time_s:.2f}s")
 
     num_images = len(prompts)
