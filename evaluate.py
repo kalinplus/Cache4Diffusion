@@ -150,9 +150,9 @@ def evaluate_all_metrics(test_folder, prompt_file_path=None, reference_folder=No
 def main():
     parser = argparse.ArgumentParser(description='Unified metrics evaluation')
     parser.add_argument('--test_folder', type=str, required=True, help='Test images folder')
-    parser.add_argument('--prompt_file', type=str, default="assets/prompts/DrawBench200.txt", help='Prompts file')
     parser.add_argument('--reference_folder', type=str, default=None, help='Reference images folder for quality metrics')
-    # forexample, /data/public/models/laion/CLIP-ViT-g-14-laion2B-s12B-b42K
+    parser.add_argument('--prompt_file', type=str, default="assets/prompts/DrawBench200.txt", help='Prompts file')
+    # for example, /data/public/models/laion/CLIP-ViT-g-14-laion2B-s12B-b42K
     parser.add_argument('--clip_model_path', type=str, default="/mnt/data0/pretrained_models/laion/CLIP-ViT-g-14-laion2B-s12B-b42K") 
     parser.add_argument('--imagereward_model_path', type=str, default="/mnt/data0/pretrained_models/zai-org/ImageReward")
 
