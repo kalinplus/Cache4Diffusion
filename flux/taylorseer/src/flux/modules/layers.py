@@ -155,11 +155,12 @@ class DoubleStreamBlock(nn.Module):
             nn.Linear(mlp_hidden_dim, hidden_size, bias=True),
         )
 
-    def forward(self, img: Tensor, txt: Tensor, vec: Tensor, pe: Tensor, cache_dic: dict, current: dict) -> tuple[Tensor, Tensor]:
-        
-        from .cache_functions import module_cache_init, derivative_approximation, taylor_formula
-        
-        if current['type'] == 'full':
+    def forward(
+        self, img: Tensor, txt: Tensor, vec: Tensor, pe: Tensor, cache_dic: dict, current: dict
+    ) -> tuple[Tensor, Tensor]:
+        from .cache_functions import update_cache_or_approximate
+
+        if current["type"] == "full":
             img_mod1, img_mod2 = self.img_mod(vec)
             txt_mod1, txt_mod2 = self.txt_mod(vec)
 
@@ -185,54 +186,49 @@ class DoubleStreamBlock(nn.Module):
             attn = attention(q, k, v, pe=pe)
             txt_attn, img_attn = attn[:, : txt.shape[1]], attn[:, txt.shape[1] :]
 
-            # calculate the img blocks
+            # calculate() img blocks
             img_attn_out = self.img_attn.proj(img_attn)
             img = img + img_mod1.gate * img_attn_out
 
-            current['module'] = 'img_attn'
-            module_cache_init(cache_dic=cache_dic, current=current)
-            derivative_approximation(cache_dic=cache_dic, current=current, feature=img_attn_out)
-            
+            current["module"] = "img_attn"
+            update_cache_or_approximate(cache_dic=cache_dic, current=current, feature=img_attn_out)
+
             img_mlp_out = self.img_mlp((1 + img_mod2.scale) * self.img_norm2(img) + img_mod2.shift)
             img = img + img_mod2.gate * img_mlp_out
 
-            current['module'] = 'img_mlp'
-            module_cache_init(cache_dic=cache_dic, current=current)
-            derivative_approximation(cache_dic=cache_dic, current=current, feature=img_mlp_out)
-            
-            # calculate the txt blocks
+            current["module"] = "img_mlp"
+            update_cache_or_approximate(cache_dic=cache_dic, current=current, feature=img_mlp_out)
+
+            # calculate() txt blocks
             txt_attn_out = self.txt_attn.proj(txt_attn)
             txt = txt + txt_mod1.gate * txt_attn_out
 
-            current['module'] = 'txt_attn'
-            module_cache_init(cache_dic=cache_dic, current=current)
-            derivative_approximation(cache_dic=cache_dic, current=current, feature=txt_attn_out)
+            current["module"] = "txt_attn"
+            update_cache_or_approximate(cache_dic=cache_dic, current=current, feature=txt_attn_out)
 
             txt_mlp_out = self.txt_mlp((1 + txt_mod2.scale) * self.txt_norm2(txt) + txt_mod2.shift)
             txt = txt + txt_mod2.gate * txt_mlp_out
 
-            current['module'] = 'txt_mlp'
-            module_cache_init(cache_dic=cache_dic, current=current)
-            derivative_approximation(cache_dic=cache_dic, current=current, feature=txt_mlp_out)
+            current["module"] = "txt_mlp"
+            update_cache_or_approximate(cache_dic=cache_dic, current=current, feature=txt_mlp_out)
 
         else:
-
             img_mod1, img_mod2 = self.img_mod(vec)
             txt_mod1, txt_mod2 = self.txt_mod(vec)
 
-            # caculate the img bloks
-            current['module'] = 'img_attn'
-            img = img + img_mod1.gate * taylor_formula(cache_dic=cache_dic, current=current)
+            # caculate() img bloks
+            current["module"] = "img_attn"
+            img = img + img_mod1.gate * update_cache_or_approximate(cache_dic=cache_dic, current=current)
 
-            current['module'] = 'img_mlp'
-            img = img + img_mod2.gate * taylor_formula(cache_dic=cache_dic, current=current)
-            
-            # caculate the txt bloks
-            current['module'] = 'txt_attn'
-            txt = txt + txt_mod1.gate * taylor_formula(cache_dic=cache_dic, current=current)
+            current["module"] = "img_mlp"
+            img = img + img_mod2.gate * update_cache_or_approximate(cache_dic=cache_dic, current=current)
 
-            current['module'] = 'txt_mlp'
-            txt = txt + txt_mod2.gate * taylor_formula(cache_dic=cache_dic, current=current)
+            # caculate() txt bloks
+            current["module"] = "txt_attn"
+            txt = txt + txt_mod1.gate * update_cache_or_approximate(cache_dic=cache_dic, current=current)
+
+            current["module"] = "txt_mlp"
+            txt = txt + txt_mod2.gate * update_cache_or_approximate(cache_dic=cache_dic, current=current)
 
         return img, txt
 
@@ -271,11 +267,9 @@ class SingleStreamBlock(nn.Module):
         self.modulation = Modulation(hidden_size, double=False)
 
     def forward(self, x: Tensor, vec: Tensor, pe: Tensor, cache_dic: dict, current: dict) -> Tensor:
-        
-        from .cache_functions import module_cache_init, derivative_approximation, taylor_formula
-        
-        if current['type'] == 'full':
+        from .cache_functions import update_cache_or_approximate
 
+        if current["type"] == "full":
             mod, _ = self.modulation(vec)
             x_mod = (1 + mod.scale) * self.pre_norm(x) + mod.shift
             qkv, mlp = torch.split(self.linear1(x_mod), [3 * self.hidden_size, self.mlp_hidden_dim], dim=-1)
@@ -288,16 +282,14 @@ class SingleStreamBlock(nn.Module):
             # compute activation in mlp stream, cat again and run second linear layer
             output = self.linear2(torch.cat((attn, self.mlp_act(mlp)), 2))
 
-            current['module'] = 'output'
-            module_cache_init(cache_dic=cache_dic, current=current)
-            derivative_approximation(cache_dic=cache_dic, current=current, feature=output)
+            current["module"] = "output"
+            update_cache_or_approximate(cache_dic=cache_dic, current=current, feature=output)
 
         else:
-
             mod, _ = self.modulation(vec)
 
-            current['module'] = 'output'
-            output = taylor_formula(cache_dic=cache_dic, current=current)
+            current["module"] = "output"
+            output = update_cache_or_approximate(cache_dic=cache_dic, current=current)
 
         return x + mod.gate * output
 

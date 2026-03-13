@@ -1,0 +1,262 @@
+用户文档
+Slurm
+用户手册
+LaTeX
+软件使用
+目录
+Portal 网址（快速入口）
+0. 重要提示（已接管）
+0.1 两条硬规则（不符合会被拒绝）
+1. 核心概念：存储与分区映射（最容易出错）
+1.5 默认 sandbox 与特殊审批（面向用户的口径）
+1.5.1 先按场景选“你属于哪一类”
+1.5.2 默认行为（你不写 --account 会发生什么）
+1.5.3 审批会给你什么（以及你需要怎么用）
+2. 常用命令速查表（Cheatsheet）
+3. 作业提交模板（Copy & Paste）
+3.1 标准作业脚本 run.sbatch
+3.2 常见提交姿势
+4. 资源申请参数（GPU/CPU/内存/时长）
+5. 交互式调试（Interactive Mode）
+5.1 怎么看“占用持续多久”（RunTime）？
+5.2 怎么判断“是不是在用 GPU”（Busy vs Alloc）？
+6. 故障排查（Troubleshooting）
+Q1：作业一直 PD（Pending）？
+Q2：看不到 GPU，或 GPU 数量不对？
+Q3：报错 “No such file or directory”，疑似读不到数据？
+Q4：squeue 里用户变成 nobody，或 srun 报 Error generating job credential？
+Q5：提交被拒绝（提示必须写 -t / 交互上限 1 小时）？
+7. 使用规范（Dos and Don'ts）
+A100 集群 Slurm 用户手册（2026 版）¶
+适用人群：作业提交者 / 算法工程师
+更新时间：2026-02-10
+核心原则：数据在哪，作业就由哪个分区调度。
+
+（如遇到 squeue 显示 nobody / srun 报 credential 错误，见本文 §6 Q4。）
+
+本文面向“使用者”（提交/管理作业），不包含 Slurm 的安装与启用步骤；管理员侧请参考同目录 README.md 与配置模板。
+
+Portal 网址（快速入口）¶
+基础网址（本集群线上）：http://js1.blockelite.cn:34601
+
+推荐入口（Landing）：/home（http://js1.blockelite.cn:34601/home，且 / 会跳转到此页）
+机器视角（Public）：/cluster（http://js1.blockelite.cn:34601/cluster）
+登录页：/login（http://js1.blockelite.cn:34601/login）
+我的 Dashboard：/u（http://js1.blockelite.cn:34601/u）
+我的 Slurm：/u/slurm（http://js1.blockelite.cn:34601/u/slurm）
+全局 Slurm（只读）：/slurm（http://js1.blockelite.cn:34601/slurm）
+Docs：/docs（http://js1.blockelite.cn:34601/docs）
+0. 重要提示（已接管）¶
+当前 A100 集群已由 Slurm 接管：请使用 sbatch / srun 提交作业，不要在登录 shell 里长期裸跑占用 CPU/GPU。
+sinfo 的 idle 表示 Slurm 视角“可调度”，但提交前仍建议自查 nvidia-smi（尤其是你在某台机器上做过手工调试/临时进程时）。
+如果你需要运行“常驻服务”（例如对外 Web/API、长期后台守护进程），请先与管理员确认部署位置与方式：计算节点默认用于跑作业，不建议作为长期服务宿主。
+0.1 两条硬规则（不符合会被拒绝）¶
+只要申请了 GPU（--gres=gpu:N）：必须显式写 -t/--time（最长运行时长），不允许 UNLIMITED/无限。
+交互调试（srun，尤其 --pty bash）：GPU 占用上限 01:00:00，且默认只允许 --gres=gpu:1；需要更久/更多卡的任务请用 sbatch 或联系管理员走审批。
+多卡调试（2/4/8 卡）：需要管理员审批创建/授权临时项目账号（形如 dbg_*/debug_*），并且只允许 srun/salloc 交互调试（不允许 sbatch）。
+1. 核心概念：存储与分区映射（最容易出错）¶
+请根据你的数据存放位置选择对应的分区（Partition）：
+
+数据存放位置	路径特征	适用场景	应选分区（Partition）
+全节点共享盘	/mnt	代码、通用数据集、模型输出	a100_global（默认/推荐）
+本机本地盘	/data	强依赖本地高 IO 的数据	a100_local_<节点名>
+本机扩展盘	/data2	部分节点的扩展存储	a100_local_<节点名>
+注意： - 节点 A100-0371-23100 没有 /data2。 - 如果依赖 /data 或 /data2，请务必指定 a100_local_<节点名> 或 --nodelist=<节点名>，否则可能被调度到没有该数据的机器上。
+
+1.5 默认 sandbox 与特殊审批（面向用户的口径）¶
+你只需要记住一句话：
+
+默认都用 sandbox；想要“更多卡/更久/更高优先级/多卡 debug”等例外，走管理员审批给你额外 account。
+1.5.1 先按场景选“你属于哪一类”¶
+你的需求场景	你该怎么提交	需要审批吗	关键约束/说明
+交互调试（最常见）	srun ... --gres=gpu:1 -t 01:00:00 --pty bash -l	否	默认只允许 gpu:1，且 -t<=01:00:00
+常规训练/评测（<=8 卡/人）	sbatch -p a100_global --gres=gpu:N -t ... run.sbatch	否	sandbox 下每人累计 GPU 有硬上限（通常是 8；default/debug 合并计入）
+多卡调试（2/4/8 卡，短时）	srun --account dbg_<ticket> --gres=gpu:2 -t 01:00:00 --pty bash -l	是	需要管理员创建/授权 dbg_*/debug_* 临时账号；只允许 srun/salloc（不允许 sbatch）
+需要 >8 卡/人（多机训练或高并发）	sbatch --account <proj_xxx> ...	是	管理员会创建项目账号并配置配额；你需要显式 --account
+需要更长 walltime（长任务）	sbatch --account <proj_xxx> -t D-HH:MM:SS ...	视情况	交互调试永远是短时；长任务必须 sbatch
+加急/更高优先级	sbatch --account <proj_xxx> [--qos important/urgent] ...	是	一般由管理员授予；不建议用户自行“升档”
+1.5.2 默认行为（你不写 --account 会发生什么）¶
+你不写 --account：系统会把作业自动归入 sandbox（默认池）。
+sandbox 的定位：给所有人一个“能跑起来”的默认通道，但会有严格限额（例如每人并发 GPU 上限）。
+sandbox 的累计 GPU 上限会把 default/debug 合并计算；超过上限时作业会正常提交但保持排队不启动（PENDING，常见原因 AssocGrpGRES）。
+--qos：除非管理员明确让你用，否则不建议自行填写；交互调试的 QOS=debug 会由系统自动识别/注入。
+自查（看你的作业实际用了哪个 account/QOS）：
+
+
+squeue -u $USER -o "%.10i %.16a %.10q %.10T %.20R"
+1.5.3 审批会给你什么（以及你需要怎么用）¶
+审批后，管理员通常会给你两类东西：
+
+项目账号（--account proj_xxx）：用于正式训练/评测（sbatch 为主）。
+临时 debug 账号（--account dbg_<ticket>）：用于短时多卡调试（srun/salloc 为主，且不允许 sbatch）。
+你只需要在命令里显式带上 --account <管理员给你的账号> 即可。
+
+2. 常用命令速查表（Cheatsheet）¶
+动作	命令	说明
+查看节点/分区	sinfo -N -l	查看节点状态（Idle/Alloc/Down）
+查看作业队列	squeue -u $USER	查看自己的作业
+提交作业	sbatch run.sbatch	异步提交脚本
+取消作业	scancel <jobid>	终止作业
+交互调试	srun ... --pty bash -l	申请资源并进入交互 shell（GPU 上限 -t 01:00:00）
+3. 作业提交模板（Copy & Paste）¶
+3.1 标准作业脚本 run.sbatch¶
+保存为文件后，用 sbatch run.sbatch 提交：
+
+
+#!/usr/bin/env bash
+#SBATCH -J demo                 # 作业名
+#SBATCH -p a100_global          # 分区：只用 /mnt 选 global；依赖本地盘选 local
+#SBATCH --gres=gpu:1            # GPU 数量（建议显式写）
+#SBATCH -c 8                    # CPU 核数
+#SBATCH --mem=32G               # 内存
+#SBATCH -t 02:00:00             # 时长：HH:MM:SS 或 D-HH:MM:SS（申请 GPU 必须写）
+#SBATCH -o logs/%x-%j.out       # 标准输出日志（%x=作业名, %j=ID）
+#SBATCH -e logs/%x-%j.err       # 错误日志
+
+set -euo pipefail
+mkdir -p logs
+
+echo "节点: $(hostname)"
+echo "CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES"
+nvidia-smi -L
+python3 -V
+
+# python3 train.py ...
+3.2 常见提交姿势¶
+场景 A：常规训练（数据在 /mnt）
+
+
+sbatch -p a100_global --gres=gpu:4 run.sbatch
+场景 B：数据在某台机器的本地盘（例如 A100-0309-16900:/data/...）
+
+方法 1（推荐）：使用本机分区
+
+
+sbatch -p a100_local_A100-0309-16900 --gres=gpu:1 run.sbatch
+方法 2：使用 --nodelist 强制指定节点
+
+
+sbatch --nodelist=A100-0309-16900 --gres=gpu:1 run.sbatch
+如果你不确定分区名：
+
+
+sinfo -o '%P %a %D %N'
+4. 资源申请参数（GPU/CPU/内存/时长）¶
+资源类型	参数	示例	备注
+GPU	--gres=gpu:<N>	--gres=gpu:8	建议显式写，避免“抢 GPU / 看不到 GPU / 误用全部 GPU”
+CPU	-c <N>	-c 64	常见经验：每张 GPU 配 8–10 核起步（按任务调整）
+内存	--mem=<大小>	--mem=400G	单位 K/M/G/T
+时长	-t <时间>	-t 24:00:00	支持 HH:MM:SS 或 D-HH:MM:SS；申请 GPU 必须显式填写 -t，否则会被拒绝
+提示：按需申请，避免资源要太大导致排队很久。
+
+5. 交互式调试（Interactive Mode）¶
+代码跑不通时，优先拿一个交互终端调试（比反复 sbatch 更高效）：
+
+
+srun -p a100_global --gres=gpu:1 -c 8 --mem=32G -t 01:00:00 --pty bash -l
+说明：
+
+交互拿 GPU 默认按 1 小时上限治理；超过上限会被拒绝提交。
+交互调试默认只允许 --gres=gpu:1；多卡调试请联系管理员走审批。
+需要更久的任务请用 sbatch（批处理）并设置合理 -t。
+经验法则：srun 用于短调试；sbatch 用于正式训练/长任务。
+进入后：
+
+
+hostname
+nvidia-smi
+退出释放：exit 或 Ctrl+D。
+
+5.1 怎么看“占用持续多久”（RunTime）？¶
+优先以 Slurm 输出为准（Portal 表格为了省空间，可能会对时长做简写/截断，容易误读）。
+
+最常用（看运行时长 + 时长上限）：
+
+
+# %M=RunTime, %l=TimeLimit
+squeue -j <jobid> -o "%.18i %.8T %.10M %.10l %.20R"
+更详细（看开始时间、命令形态、分配到的节点）：
+
+
+scontrol show job <jobid> -dd | egrep 'JobId=|JobState=|RunTime=|TimeLimit=|StartTime=|NodeList=|Command=|BatchFlag='
+时长格式说明（Slurm 常见两种）：
+
+HH:MM:SS：例如 00:09:12
+D-HH:MM:SS：例如 1-03:22:10（表示 1 天 3 小时 22 分 10 秒）
+5.2 怎么判断“是不是在用 GPU”（Busy vs Alloc）？¶
+关键认知：Slurm 只保证“分配了 GPU”（Alloc），不保证“程序真的在跑 GPU compute”（Busy）。
+
+最稳妥的判断方法是看 GPU 上是否存在你的 compute 进程：
+
+先定位作业在哪台节点：
+
+scontrol show job <jobid> -dd | rg -n "NodeList="
+在对应节点查看 GPU 进程（只要你有权限登陆该节点）：
+
+nvidia-smi
+常见“占卡但不跑”的情况：
+
+交互 shell（srun --pty bash）拿到 GPU 后停在命令行，没启动训练/推理。
+在作业里安装依赖、拉代码、数据预处理主要用 CPU/IO，GPU 进程为空或 utilization 很低。
+如果你只是需要更久的准备时间：不要用交互占卡顶着，改成 sbatch（批处理）或先在不申请 GPU 的情况下准备好环境再申请 GPU。
+
+6. 故障排查（Troubleshooting）¶
+Q1：作业一直 PD（Pending）？¶
+查看原因：
+
+
+squeue -j <jobid> -o '%.18i %.9P %.8T %.20R'
+scontrol show job <jobid>
+常见 Reason： - Resources：资源不足（比如你要 8 卡，但当前没有空闲 8 卡节点）。 - Priority：正在排队。 - ReqNodeNotAvail：你指定的节点不可用/维护中。
+
+Q2：看不到 GPU，或 GPU 数量不对？¶
+先确认你是否申请了 GPU：
+
+
+echo "CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES"
+nvidia-smi -L
+如果没写 --gres=gpu:N，Slurm 可能不会为你分配/限制 GPU（不同环境行为可能不同）。
+
+Q3：报错 “No such file or directory”，疑似读不到数据？¶
+高概率是：你在脚本里用了 /data 或 /data2，但作业被调度到了另一台机器。
+
+解决： - 把数据迁移到 /mnt，然后用 a100_global； - 或者明确使用 a100_local_<节点名> / --nodelist=<节点名>。
+
+Q4：squeue 里用户变成 nobody，或 srun 报 Error generating job credential？¶
+这通常不是你“账号被删/没权限”，而是 多节点环境下账号 UID/GID 不一致 导致 Slurm 识别异常。
+
+你可以先做两步自查：
+
+
+id
+id -u
+如果你有 jobid，再看一下作业侧的 UserId 是否异常：
+
+
+scontrol show job <jobid> | egrep 'JobId=|UserId=|GroupId=|JobState=|Reason='
+处理建议：
+
+先退出并重新登录一次，再重试提交；
+仍失败：把 jobid、上面 scontrol show job 输出里 UserId= 那一行、以及 id 的输出发给管理员。
+管理员侧详细排查/修复记录见：docs/developer/ops/slurm_a100/issues/20260204_huangjianuo_srun_credential_nobody_uid_mismatch.md 详见（BeginTime 刷新 + credential 失败 + stdout 目录缺失）：docs/developer/ops/slurm_a100/issues/20260204_zhouqm_begintime_credential_stdout.md
+
+Q5：提交被拒绝（提示必须写 -t / 交互上限 1 小时）？¶
+这是集群治理规则在生效：
+
+申请 GPU 必须显式写 -t/--time
+srun（交互调试）GPU 上限 -t 01:00:00
+怎么改：
+
+交互调试：把 -t 改成 01:00:00，例如：
+
+srun -p a100_global --gres=gpu:1 -t 01:00:00 --pty bash -l
+多卡调试：需要先拿到管理员给你的 dbg_*/debug_* 临时账号，然后只能用 srun/salloc（不允许 sbatch），例如：
+
+srun -p a100_global --account dbg_<ticket> --gres=gpu:2 -t 01:00:00 --pty bash -l
+需要更久：改用 sbatch，并设置合理 -t。
+7. 使用规范（Dos and Don'ts）¶
+建议把日志/输出写到 /mnt（便于跨节点查看），例如：-o /mnt/.../logs/%x-%j.out
+不确定资源需求时，先用小资源 srun --pty 验证，再提交长作业
+避免在登录 shell 长期跑重负载任务；请用 sbatch/srun 走调度
+交互（srun）只用于短调试（<=1 小时）；长任务用 sbatch
+Made with Material for MkDocs
