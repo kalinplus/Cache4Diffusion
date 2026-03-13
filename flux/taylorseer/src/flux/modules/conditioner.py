@@ -1,5 +1,6 @@
 from torch import Tensor, nn
 from transformers import CLIPTextModel, CLIPTokenizer, T5EncoderModel, T5Tokenizer
+import os
 
 
 class HFEmbedder(nn.Module):
@@ -9,7 +10,15 @@ class HFEmbedder(nn.Module):
         self.max_length = max_length
         self.output_key = "pooler_output" if self.is_clip else "last_hidden_state"
 
-        if self.is_clip:
+        if self.is_clip and "CLIP_MODEL_PATH" in os.environ:
+            local_path = os.environ["CLIP_MODEL_PATH"]
+            self.tokenizer: CLIPTokenizer = CLIPTokenizer.from_pretrained(local_path, max_length=max_length)
+            self.hf_module: CLIPTextModel = CLIPTextModel.from_pretrained(local_path, **hf_kwargs)
+        elif not self.is_clip and "T5_MODEL_PATH" in os.environ:
+            local_path = os.environ["T5_MODEL_PATH"]
+            self.tokenizer: T5Tokenizer = T5Tokenizer.from_pretrained(local_path, max_length=max_length)
+            self.hf_module: T5EncoderModel = T5EncoderModel.from_pretrained(local_path, **hf_kwargs)
+        elif self.is_clip:
             self.tokenizer: CLIPTokenizer = CLIPTokenizer.from_pretrained(version, max_length=max_length)
             self.hf_module: CLIPTextModel = CLIPTextModel.from_pretrained(version, **hf_kwargs)
         else:
