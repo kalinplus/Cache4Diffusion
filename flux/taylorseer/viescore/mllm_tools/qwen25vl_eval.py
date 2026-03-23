@@ -1,3 +1,4 @@
+import os
 import random
 from io import BytesIO
 
@@ -29,11 +30,12 @@ def set_seed(seed: int):
 
 class Qwen25VL:
     def __init__(self) -> None:
+        model_name = os.environ.get("QWEN25VL_MODEL_PATH", "Qwen/Qwen2.5-VL-72B-Instruct-AWQ")
         self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-            "Qwen/Qwen2.5-VL-72B-Instruct-AWQ",
+            model_name,
             torch_dtype=torch.float16,
         ).to("cuda").eval()
-        self.processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-72B-Instruct-AWQ")
+        self.processor = AutoProcessor.from_pretrained(model_name)
 
     def prepare_prompt(self, image_links: list | None = None, text_prompt: str = ""):
         if image_links is None:
@@ -65,6 +67,10 @@ class Qwen25VL:
             return_tensors="pt",
         )
         inputs = inputs.to("cuda")
+        # # Cast to float16 for AWQ compatibility
+        # for k in ["pixel_values", "image_grid_thw", "video_grid_thw"]:
+        #     if hasattr(inputs, k) and getattr(inputs, k) is not None:
+        #         setattr(inputs, k, getattr(inputs, k).to(torch.float16))
 
         # Generate output
         generation_config = {

@@ -178,7 +178,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_steps', type=int, default=50, help='Number of sampling steps.')
     parser.add_argument('--guidance', type=float, default=3.5, help='Guidance value.')
     parser.add_argument('--seed', type=int, default=0, help='Random seed.')
-    parser.add_argument('--model_name', type=str, default='flux-dev-kontext', help='Model name.')
+    parser.add_argument('--model_name', type=str, default='flux-dev-kontext', help='Model key (e.g. flux-dev-kontext).')
     parser.add_argument('--output_dir', type=str, default='samples/Gedit/test', help='Directory to save images.')
     parser.add_argument('--english_only', action='store_true', help='Process only English tasks.')
     parser.add_argument('--test_FLOPs', action='store_true', help='Test inference computation cost.')
