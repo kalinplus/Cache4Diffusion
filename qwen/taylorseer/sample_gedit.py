@@ -65,6 +65,14 @@ def main(opts: SamplingOptions):
 
     if rank == 0:
         print(f"Loading dataset: {opts.dataset_path}")
+
+    # Log smoothing config (read from env vars, same as cache_init)
+    import os
+    use_smoothing = os.environ.get("USE_SMOOTHING", "False").lower() in ("true", "1", "yes")
+    smoothing_method = os.environ.get("SMOOTHING_METHOD", "exponential")
+    smoothing_alpha = os.environ.get("SMOOTHING_ALPHA", "0.8")
+    if rank == 0 and use_smoothing:
+        print(f"[TaylorSeer Smooth] enabled | method={smoothing_method} | alpha={smoothing_alpha}")
     dataset = load_from_disk(opts.dataset_path)
     if rank == 0:
         print(f"Dataset loaded, total {len(dataset)} samples")

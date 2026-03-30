@@ -31,7 +31,7 @@ for interval in "${INTERVAL[@]}"; do
                     export USE_SMOOTHING="True"
                     export SMOOTHING_ALPHA="$alpha"
                 fi
-                output_dir="samples/GEdit/taylorseer/N${interval}O${max_order}F${first_enhance}Alpha${alpha}"
+                output_dir="/home/hkl/Cache4Diffusion/samples/GEdit/taylorseer/N${interval}O${max_order}F${first_enhance}Alpha${alpha}"
 
                 torchrun --standalone --nproc_per_node=1 flux/taylorseer/src/sample_gedit.py \
                     --dataset_path "/mnt/data0/datasets/stepfun-ai/GEdit-Bench" \

@@ -688,10 +688,19 @@ def load_flow_model(name: str, device: str | torch.device = "cuda", verbose: boo
 
 def load_t5(device: str | torch.device = "cuda", max_length: int = 512) -> HFEmbedder:
     # max length 64, 128, 256 and 512 should work (if your sequence is short enough)
+    # version = os.environ.get("T5_MODEL_PATH", "google/t5-v1_1-xxl")
+    # if not os.path.exists(version):
+    #     print(f"[load_t5] T5_MODEL_PATH={version} not found, falling back to HuggingFace hub.")
+    #     version = "google/t5-v1_1-xxl"
+    # return HFEmbedder(version, max_length=max_length, torch_dtype=torch.bfloat16).to(device)
     return HFEmbedder("google/t5-v1_1-xxl", max_length=max_length, torch_dtype=torch.bfloat16).to(device)
 
-
 def load_clip(device: str | torch.device = "cuda") -> HFEmbedder:
+    # version = os.environ.get("CLIP_MODEL_PATH", "openai/clip-vit-large-patch14")
+    # if not os.path.exists(version):
+    #     print(f"[load_clip] CLIP_MODEL_PATH={version} not found, falling back to HuggingFace hub.")
+    #     version = "openai/clip-vit-large-patch14"
+    # return HFEmbedder(version, max_length=77, torch_dtype=torch.bfloat16).to(device)
     return HFEmbedder("openai/clip-vit-large-patch14", max_length=77, torch_dtype=torch.bfloat16).to(device)
 
 

@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.distributed as dist
-from datasets import load_dataset
+from datasets import load_dataset, load_from_disk
 from PIL import Image
 from tqdm import tqdm
 
@@ -263,7 +263,14 @@ def main(args):
     processed_by_group = load_existing_results(tmp_dir, groups)
 
     vie_score = VIEScore(backbone=args.backbone, task="tie", key_path="secret.env")
-    dataset = load_dataset("stepfun-ai/GEdit-Bench", split="train")
+    dataset_path = os.environ.get("GEDIT_DATASET_PATH", "stepfun-ai/GEdit-Bench")
+    if os.path.exists(dataset_path):
+        dataset = load_from_disk(dataset_path)
+        if hasattr(dataset, "keys"):
+            # DatasetDict format - get train split
+            dataset = dataset["train"]
+    else:
+        dataset = load_dataset(dataset_path, split="train")
 
     target_groups = set(groups)
     filtered_items = [

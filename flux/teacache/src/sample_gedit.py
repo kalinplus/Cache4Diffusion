@@ -1,7 +1,10 @@
 import os
-from dataclasses import dataclass
+import sys
 from pathlib import Path
+from dataclasses import dataclass
 from typing import cast
+
+sys.path.insert(0, str(Path(__file__).parent))
 
 import torch
 import torch.distributed as dist

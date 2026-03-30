@@ -1,8 +1,13 @@
 import os
 import re
+import sys
 import time
 from dataclasses import dataclass
 from glob import iglob
+from pathlib import Path
+
+# 优先使用本地 flux 包（修改过 load_t5 / load_clip 支持环境变量）
+sys.path.insert(0, str(Path(__file__).parent))
 
 import torch
 from einops import rearrange

@@ -414,7 +414,7 @@ class QwenImageTransformerBlock(nn.Module):
         current: dict = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
 
-        from cache_functions import module_cache_init, derivative_approximation, taylor_formula
+        from cache_functions import update_cache_or_approximate
 
         if current['type'] == 'full':
             # Get modulation parameters for both streams
@@ -433,34 +433,24 @@ class QwenImageTransformerBlock(nn.Module):
             txt_normed = self.txt_norm1(encoder_hidden_states)
             txt_modulated, txt_gate1 = self._modulate(txt_normed, txt_mod1)
 
-            # Use QwenAttnProcessor2_0 for joint attention computation
-            # This directly implements the DoubleStreamLayerMegatron logic:
-            # 1. Computes QKV for both streams
-            # 2. Applies QK normalization and RoPE
-            # 3. Concatenates and runs joint attention
-            # 4. Splits results back to separate streams
             joint_attention_kwargs = joint_attention_kwargs or {}
 
             attn_output = self.attn(
-                hidden_states=img_modulated,  # Image stream (will be processed as "sample")
-                encoder_hidden_states=txt_modulated,  # Text stream (will be processed as "context")
+                hidden_states=img_modulated,
+                encoder_hidden_states=txt_modulated,
                 encoder_hidden_states_mask=encoder_hidden_states_mask,
                 image_rotary_emb=image_rotary_emb,
                 **joint_attention_kwargs,
             )
 
-            # QwenAttnProcessor2_0 returns (img_output, txt_output) when encoder_hidden_states is provided
             img_attn_output, txt_attn_output = attn_output
 
             current['module'] = 'img_attn'
-            module_cache_init(cache_dic=cache_dic, current=current)
-            derivative_approximation(cache_dic=cache_dic, current=current, feature=img_attn_output)
+            img_attn_output = update_cache_or_approximate(cache_dic, current, img_attn_output)
 
             current['module'] = 'txt_attn'
-            module_cache_init(cache_dic=cache_dic, current=current)
-            derivative_approximation(cache_dic=cache_dic, current=current, feature=txt_attn_output)
+            txt_attn_output = update_cache_or_approximate(cache_dic, current, txt_attn_output)
 
-            # Apply attention gates and add residual (like in Megatron)
             hidden_states = hidden_states + img_gate1 * img_attn_output
             encoder_hidden_states = encoder_hidden_states + txt_gate1 * txt_attn_output
 
@@ -468,24 +458,22 @@ class QwenImageTransformerBlock(nn.Module):
             img_normed2 = self.img_norm2(hidden_states)
             img_modulated2, img_gate2 = self._modulate(img_normed2, img_mod2)
             img_mlp_output = self.img_mlp(img_modulated2)
-            hidden_states = hidden_states + img_gate2 * img_mlp_output
 
             current['module'] = 'img_mlp'
-            module_cache_init(cache_dic=cache_dic, current=current)
-            derivative_approximation(cache_dic=cache_dic, current=current, feature=img_mlp_output)
+            img_mlp_output = update_cache_or_approximate(cache_dic, current, img_mlp_output)
 
             # Process text stream - norm2 + MLP
             txt_normed2 = self.txt_norm2(encoder_hidden_states)
             txt_modulated2, txt_gate2 = self._modulate(txt_normed2, txt_mod2)
             txt_mlp_output = self.txt_mlp(txt_modulated2)
-            encoder_hidden_states = encoder_hidden_states + txt_gate2 * txt_mlp_output
 
             current['module'] = 'txt_mlp'
-            module_cache_init(cache_dic=cache_dic, current=current)
-            derivative_approximation(cache_dic=cache_dic, current=current, feature=txt_mlp_output)
-        
-        else:
+            txt_mlp_output = update_cache_or_approximate(cache_dic, current, txt_mlp_output)
 
+            hidden_states = hidden_states + img_gate2 * img_mlp_output
+            encoder_hidden_states = encoder_hidden_states + txt_gate2 * txt_mlp_output
+
+        else:
             # Get modulation parameters for both streams
             img_mod_params = self.img_mod(temb)  # [B, 6*dim]
             txt_mod_params = self.txt_mod(temb)  # [B, 6*dim]
@@ -498,23 +486,23 @@ class QwenImageTransformerBlock(nn.Module):
             _, _, img_gate2 = img_mod2.chunk(3, dim=-1)
             _, _, txt_gate1 = txt_mod1.chunk(3, dim=-1)
             _, _, txt_gate2 = txt_mod2.chunk(3, dim=-1)
-        
+
             img_gate1 = img_gate1.unsqueeze(1)
             img_gate2 = img_gate2.unsqueeze(1)
             txt_gate1 = txt_gate1.unsqueeze(1)
             txt_gate2 = txt_gate2.unsqueeze(1)
 
             current['module'] = 'img_attn'
-            hidden_states = hidden_states + img_gate1 * taylor_formula(cache_dic=cache_dic, current=current)
+            hidden_states = hidden_states + img_gate1 * update_cache_or_approximate(cache_dic, current)
 
             current['module'] = 'txt_attn'
-            encoder_hidden_states = encoder_hidden_states + txt_gate1 * taylor_formula(cache_dic=cache_dic, current=current)
+            encoder_hidden_states = encoder_hidden_states + txt_gate1 * update_cache_or_approximate(cache_dic, current)
 
             current['module'] = 'img_mlp'
-            hidden_states = hidden_states + img_gate2 * taylor_formula(cache_dic=cache_dic, current=current)
+            hidden_states = hidden_states + img_gate2 * update_cache_or_approximate(cache_dic, current)
 
             current['module'] = 'txt_mlp'
-            encoder_hidden_states = encoder_hidden_states + txt_gate2 * taylor_formula(cache_dic=cache_dic, current=current)
+            encoder_hidden_states = encoder_hidden_states + txt_gate2 * update_cache_or_approximate(cache_dic, current)
 
         # !If you run out of VRAM, you can try the following code, or conduct experiments on H20.
         # if current['type'] == 'full':

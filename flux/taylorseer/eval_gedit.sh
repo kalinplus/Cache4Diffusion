@@ -8,7 +8,7 @@ set -euo pipefail
 
 cd flux/taylorseer
 
-export CUDA_VISIBLE_DEVICES=2
+export CUDA_VISIBLE_DEVICES=1
 
 # # 项目根目录（用于 PYTHONPATH）
 # PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -20,8 +20,8 @@ TASK_TYPE="all"                                    # 评测任务类型: all / b
 BACKBONE="qwen25vl"                                # 评估 backbone: gpt4o / qwen25vl
 
 # 评测配置组合
-INTERVALS=(4 5 6)
-MAX_ORDERS=(1)
+INTERVALS=(9)
+MAX_ORDERS=(1 2)
 FIRST_ENHANCES=(3)
 ALPHAS=(0 0.8)
 
@@ -35,7 +35,7 @@ for interval in "${INTERVALS[@]}"; do
     for max_order in "${MAX_ORDERS[@]}"; do
         for first_enhance in "${FIRST_ENHANCES[@]}"; do
             for alpha in "${ALPHAS[@]}"; do
-                SAVE_DIR="/home/hkl/Cache4Diffusion/samples/GEdit/taylorseer/N${interval}O${max_order}F${first_enhance}Alpha${alpha}"
+                SAVE_DIR="/home/hkl/Cache4Diffusion/samples/GEdit/flux-kontext/taylorseer/N${interval}O${max_order}F${first_enhance}Alpha${alpha}"
 
                 echo "=========================================="
                 echo "Evaluating: N${interval}O${max_order}F${first_enhance}Alpha${alpha}"
