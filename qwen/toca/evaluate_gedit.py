@@ -263,12 +263,11 @@ def main(args):
     processed_by_group = load_existing_results(tmp_dir, groups)
 
     vie_score = VIEScore(backbone=args.backbone, task="tie", key_path="secret.env")
-    # Use local dataset if it exists (saved via save_to_disk), otherwise fall back to HuggingFace hub
-    local_dataset_path = "/mnt/data0/datasets/stepfun-ai/GEdit-Bench"
-    if os.path.exists(local_dataset_path):
-        dataset = load_from_disk(local_dataset_path)
+    gedit_dataset_path = os.environ.get("GEDIT_DATASET_PATH", "/mnt/data0/datasets/stepfun-ai/GEdit-Bench")
+    if os.path.exists(gedit_dataset_path):
+        dataset = load_from_disk(gedit_dataset_path)
         if hasattr(dataset, "keys"):
-            dataset = dataset["train"]  # handle DatasetDict format
+            dataset = dataset["train"]
     else:
         dataset = load_dataset("stepfun-ai/GEdit-Bench", split="train")
 
