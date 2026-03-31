@@ -44,5 +44,5 @@
 | 目录 | 状态 |
 |------|------|
 | `qwen/taylorseer/` | ✅ 已完成 |
-| `qwen/teacache/` | 待处理 |
-| `qwen/toca/` | 待处理 |
+| `qwen/teacache/` | ✅ 已完成 |
+| `qwen/toca/` | ✅ 已完成 |
