@@ -4,10 +4,10 @@
 # TaylorSeer (ts) 和 TaylorSeer-Smooth (ts-smooth) 配置
 # 用于复用 freqca 数据的 N, O, Alpha 组合
 
-export CUDA_VISIBLE_DEVICES=7
+export CUDA_VISIBLE_DEVICES=3
 
 # Qwen Image Edit 模型路径（直接传本地路径给 --model_name）
-MODEL_PATH="/mnt/data0/Qwen-Image-Edit-2509"
+MODEL_PATH="/mnt/data0/Qwen/Qwen-Image-Edit"
 
 cd "$(dirname "$0")"
 
@@ -15,8 +15,8 @@ cd "$(dirname "$0")"
 # N (interval): 5, 6, 9
 # O (max_order): 1, 2
 # Alpha: 0 (no smooth), 0.8 (smooth)
-INTERVAL=(5 6 9)
-MAX_ORDERS=(2)
+INTERVAL=(9)
+MAX_ORDERS=(1)
 ALPHAS=(0.8)
 FIRST_ENHANCE=3
 

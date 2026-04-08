@@ -128,7 +128,7 @@ def evaluate_all_metrics(test_folder, prompt_file_path=None, reference_folder=No
                 match_desc = re.search(r'\d{4}_(.+)\.png$', filename)
                 if match_desc:
                     description = match_desc.group(1)
-                    ref_filename = f"HunyuanImage_{prompt_idx:04d}_{description}"
+                    ref_filename = f"HunyuanImage_{prompt_idx:04d}_{description}.png"
 
             # CLIP Score and ImageReward (require prompts)
             if prompt_idx is not None and prompt_idx < len(prompts):

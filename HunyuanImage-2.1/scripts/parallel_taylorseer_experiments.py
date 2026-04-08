@@ -33,12 +33,12 @@ BASE_OUTDIR = '/home/hkl/Cache4Diffusion/outputs/smooth/exp'
 EXPERIMENTS = []
 
 # Cache parameter combinations to explore
-CACHE_INTERVALS = [4, 5, 6]  # Can add more: [3, 4, 5, 6]
-CACHE_MAX_ORDERS = [1, 2]  # Can add more: [1, 2]
+CACHE_INTERVALS = [5, 6]  # Can add more: [3, 4, 5, 6]
+CACHE_MAX_ORDERS = [0]  # Can add more: [1, 2]
 CACHE_FIRST_ENHANCES = [3]  # Can add more: [2, 3, 4]
 
 # Smoothing parameters
-SMOOTHING_ALPHAS = [0.75, 0.8, 0.85, 0.9, 0.95]
+SMOOTHING_ALPHAS = []
 
 # Experiment 1: No smoothing (baseline) - commented out, uncomment if needed
 for interval, max_order, first_enhance in product(CACHE_INTERVALS, CACHE_MAX_ORDERS, CACHE_FIRST_ENHANCES):
@@ -53,32 +53,32 @@ for interval, max_order, first_enhance in product(CACHE_INTERVALS, CACHE_MAX_ORD
         'outdir_suffix': f'naive_ts/N{interval}O{max_order}F{first_enhance}'
     })
 
-# Experiment 2: Exponential smoothing with different alphas and cache parameters
-for interval, max_order, first_enhance in product(CACHE_INTERVALS, CACHE_MAX_ORDERS, CACHE_FIRST_ENHANCES):
-    for alpha in SMOOTHING_ALPHAS:
-        EXPERIMENTS.append({
-            'use_smoothing': True,
-            'smoothing_method': 'exponential',
-            'smoothing_alpha': alpha,
-            'cache_interval': interval,
-            'max_order': max_order,
-            'first_enhance': first_enhance,
-            'label': f'exp_N{interval}O{max_order}F{first_enhance}_alpha_{alpha}',
-            'outdir_suffix': f'exponential/N{interval}O{max_order}F{first_enhance}/{alpha}'
-        })
+# # Experiment 2: Exponential smoothing with different alphas and cache parameters
+# for interval, max_order, first_enhance in product(CACHE_INTERVALS, CACHE_MAX_ORDERS, CACHE_FIRST_ENHANCES):
+#     for alpha in SMOOTHING_ALPHAS:
+#         EXPERIMENTS.append({
+#             'use_smoothing': True,
+#             'smoothing_method': 'exponential',
+#             'smoothing_alpha': alpha,
+#             'cache_interval': interval,
+#             'max_order': max_order,
+#             'first_enhance': first_enhance,
+#             'label': f'exp_N{interval}O{max_order}F{first_enhance}_alpha_{alpha}',
+#             'outdir_suffix': f'exponential/N{interval}O{max_order}F{first_enhance}/{alpha}'
+#         })
 
-# Experiment 3: Moving average smoothing with different cache parameters
-for interval, max_order, first_enhance in product(CACHE_INTERVALS, CACHE_MAX_ORDERS, CACHE_FIRST_ENHANCES):
-    EXPERIMENTS.append({
-        'use_smoothing': True,
-        'smoothing_method': 'moving_average',
-        'smoothing_alpha': 0.8,  # Different meaning for moving average
-        'cache_interval': interval,
-        'max_order': max_order,
-        'first_enhance': first_enhance,
-        'label': f'ma_N{interval}O{max_order}F{first_enhance}_alpha_0.8',
-        'outdir_suffix': f'moving_average/N{interval}O{max_order}F{first_enhance}/0.8'
-    })
+# # Experiment 3: Moving average smoothing with different cache parameters
+# for interval, max_order, first_enhance in product(CACHE_INTERVALS, CACHE_MAX_ORDERS, CACHE_FIRST_ENHANCES):
+#     EXPERIMENTS.append({
+#         'use_smoothing': True,
+#         'smoothing_method': 'moving_average',
+#         'smoothing_alpha': 0.8,  # Different meaning for moving average
+#         'cache_interval': interval,
+#         'max_order': max_order,
+#         'first_enhance': first_enhance,
+#         'label': f'ma_N{interval}O{max_order}F{first_enhance}_alpha_0.8',
+#         'outdir_suffix': f'moving_average/N{interval}O{max_order}F{first_enhance}/0.8'
+#     })
 
 
 def run_single_experiment(exp_config, gpu_id, project_root, result_queue):

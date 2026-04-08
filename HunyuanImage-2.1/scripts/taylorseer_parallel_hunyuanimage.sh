@@ -13,7 +13,7 @@ PROJECT_ROOT="/home/hkl/Cache4Diffusion"
 cd "${PROJECT_ROOT}"
 
 # GPU configuration - modify as needed
-GPUS="4,5,6,7"
+GPUS="3,4"
 
 # Optional: Specify a range of prompts to process
 # Uncomment and modify these lines to process only a subset
@@ -24,7 +24,7 @@ GPUS="4,5,6,7"
 
 # Optional: Limit parallel experiments (default: use all GPUs)
 # MAX_PARALLEL="--max_parallel 4"
-MAX_PARALLEL=""
+MAX_PARALLEL="--max_parallel 2"
 
 # Optional: Dry run to see what experiments will be run
 # DRY_RUN="--dry_run"

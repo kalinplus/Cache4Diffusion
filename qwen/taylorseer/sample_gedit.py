@@ -57,17 +57,17 @@ def save_image(image: Image.Image, output_dir: str, task_type: str, instruction_
 
 
 def main(opts: SamplingOptions):
-    dist.init_process_group("nccl")
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    dist.init_process_group("nccl", device_id=torch.device(f"cuda:{local_rank}"))
     rank = dist.get_rank()
     world_size = dist.get_world_size()
-    device = f"cuda:{rank}"
-    torch.cuda.set_device(rank)
+    device = f"cuda:{local_rank}"
+    torch.cuda.set_device(local_rank)
 
     if rank == 0:
         print(f"Loading dataset: {opts.dataset_path}")
 
     # Log smoothing config (read from env vars, same as cache_init)
-    import os
     use_smoothing = os.environ.get("USE_SMOOTHING", "False").lower() in ("true", "1", "yes")
     smoothing_method = os.environ.get("SMOOTHING_METHOD", "exponential")
     smoothing_alpha = os.environ.get("SMOOTHING_ALPHA", "0.8")

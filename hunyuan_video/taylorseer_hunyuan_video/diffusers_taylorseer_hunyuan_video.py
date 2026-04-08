@@ -43,7 +43,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--video-size", type=int, nargs=2, metavar=("HEIGHT", "WIDTH"), default=(720, 1280),
                         help="Video size as two integers: HEIGHT WIDTH (e.g. --video-size 720 1280).")
     parser.add_argument("--video-length", type=int, default=129, help="Number of frames in the generated video.")
-    parser.add_argument("--fps", type=int, default=30, help="Frames per second for the output video.")
+    parser.add_argument("--fps", type=int, default=24, help="Frames per second for the output video.")
     parser.add_argument("--infer-steps", type=int, default=50, help="Number of sampling steps (num_inference_steps).")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument(

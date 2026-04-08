@@ -8,7 +8,7 @@ set -euo pipefail
 
 cd qwen/taylorseer
 
-export CUDA_VISIBLE_DEVICES=7
+export CUDA_VISIBLE_DEVICES=3
 
 # 评测参数（请按需修改）
 INSTRUCTION_LANGUAGE="en"                          # 评测语言: en / cn / all
@@ -16,10 +16,10 @@ TASK_TYPE="all"                                    # 评测任务类型: all / b
 BACKBONE="qwen25vl"                                # 评估 backbone: gpt4o / qwen25vl
 
 # 评测配置组合
-INTERVALS=(5 6 9)
-MAX_ORDERS=(1 2)
+INTERVALS=(9)
+MAX_ORDERS=(1)
 FIRST_ENHANCES=(3)
-ALPHAS=(0 0.8)
+ALPHAS=(0.8)
 
 # OOM 配置：O=2 + α=0.8 在单卡 H20 上无法跑完，跳过
 SKIP_CONFIGS=("N5O2F3A0.8" "N6O2F3A0.8" "N9O2F3A0.8")
@@ -49,6 +49,7 @@ for interval in "${INTERVALS[@]}"; do
                     continue
                 fi
 
+                # SAVE_DIR="/home/hkl/Cache4Diffusion/samples/GEdit/Archive/QwenImageEdit/TaylorSeer/${CONFIG_NAME}"
                 SAVE_DIR="/home/hkl/Cache4Diffusion/samples/GEdit/qwen-image-edit/taylorseer/${CONFIG_NAME}"
 
                 # 检查 fullset 是否存在且有图片
