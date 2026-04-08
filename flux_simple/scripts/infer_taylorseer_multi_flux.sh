@@ -1,38 +1,59 @@
-local_model_path="/data/public/models/FLUX.1-dev"
+local_model_path="/mnt/data0/pretrained_models/black-forest-labs/FLUX.1-dev"
 model_id="black-forest-labs/FLUX.1-dev"
-# 基础输出目录
-base_outdir="/data/huangkailin-20250908/Cache4Diffusion/flux/outputs/smooth/db200/exp"
-prompt_file="/data/huangkailin-20250908/Cache4Diffusion/assets/prompts/DrawBench200.txt"
 
-cd flux
+base_outdir="/home/hkl/Cache4Diffusion/flux_simple/outputs/"
+prompt_file="/home/hkl/Cache4Diffusion/assets/prompts/DrawBench200.txt"
+
+# 支持的 dtype: float16, bfloat16, float8, float32
+dtype="float8"
+
+cd flux_simple
 export CUDA_VISIBLE_DEVICES='0'
 
-# 设置固定的平滑参数
-export USE_SMOOTHING="True"
-export USE_HYBRID_SMOOTHING="False"
-export SMOOTHING_METHOD="exponential"
+# Smoothing parameters
+USE_SMOOTHING="False"
+USE_HYBRID_SMOOTHING="False"
+SMOOTHING_METHOD="exponential"
 
-# 定义要遍历的 alpha 列表
-alphas=(0.75 0.775 0.8 0.825 0.85 0.875 0.9 0.925 0.95)
+N=(3 5 6)
+O=(0 1 2)
+F=(3)
+alphas=(0 0.8)
 
-for alpha in "${alphas[@]}"; do
-    echo "Running inference with SMOOTHING_ALPHA=$alpha ..."
-    
-    # 设置当前循环的 alpha 环境变量
-    export SMOOTHING_ALPHA="$alpha"
-    
-    # 为每个 alpha 创建独立的输出子目录
-    current_outdir="${base_outdir}/${alpha}"
-    
-    python taylorseer_flux/batch_infer.py \
-        --model "$local_model_path" \
-        --steps 50 \
-        --seed 42 \
-        --dtype float16 \
-        --guidance_scale 7.5 \
-        --outdir "$current_outdir" \
-        --prefix ts_smooth \
-        --prompt_file "$prompt_file"
-        
-    echo "Finished alpha=$alpha. Results saved to $current_outdir"
+for n in "${N[@]}"; do
+    for o in "${O[@]}"; do
+        for f in "${F[@]}"; do
+            echo "Running inference with N=$n O=$o F=$f ..."
+
+            export FRESH_THRESHOLD="$n"
+            export MAX_ORDER="$o"
+            export FIRST_ENHANCE="$f"
+
+            for alpha in "${alphas[@]}"; do
+                echo "Running inference with dtype=$dtype SMOOTHING_ALPHA=$alpha ..."
+
+                if [ "$alpha" = 0 ]; then
+                    export USE_SMOOTHING="False"
+                else
+                    export USE_SMOOTHING="True"
+                    export SMOOTHING_ALPHA="$alpha"
+                fi
+
+                # 为每个 N, O, F, alpha 组合创建独立的输出子目录
+                current_outdir="${base_outdir}/${dtype}/N${n}O${o}F${f}A${alpha}"
+
+                python taylorseer_flux/batch_infer.py \
+                    --model "$local_model_path" \
+                    --steps 50 \
+                    --seed 42 \
+                    --dtype "$dtype" \
+                    --guidance_scale 7.5 \
+                    --outdir "$current_outdir" \
+                    --prefix ts_smooth \
+                    --prompt_file "$prompt_file"
+
+                echo "Finished dtype=$dtype alpha=$alpha. Results saved to $current_outdir"
+            done
+        done
+    done
 done

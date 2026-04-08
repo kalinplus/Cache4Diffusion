@@ -29,7 +29,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--unique_seed_per_prompt", action="store_true")
     parser.add_argument("--device", type=str, default="cuda", choices=["cuda", "cpu"])
     parser.add_argument("--dtype", type=str, default="float16",
-                        choices=["float16", "bfloat16", "float32"])
+                        choices=["float16", "bfloat16", "float32", "float8"])
     parser.add_argument("--outdir", type=str, default="outputs")
     parser.add_argument("--prefix", type=str, default="TaylorSeer")
     parser.add_argument("--enable_cpu_offload", action="store_true")

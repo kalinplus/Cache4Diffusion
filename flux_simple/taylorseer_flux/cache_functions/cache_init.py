@@ -1,15 +1,16 @@
 from diffusers.models import FluxTransformer2DModel
 import os
 
-N=6
-O=1
-
 USE_SMOOTHING = os.environ.get("USE_SMOOTHING", "False").lower() in ("true", "1", "yes")  # 是否启用平滑
 USE_HYBRID_SMOOTHING = os.environ.get("USE_HYBRID_SMOOTHING", "False").lower() == "true" # 仅当 USE_SMOOTHING=True 时有效
 SMOOTHING_METHOD = os.environ.get("SMOOTHING_METHOD", "exponential")  # 'exponential' or 'moving_average'
 SMOOTHING_ALPHA = float(os.environ.get("SMOOTHING_ALPHA", "0.7"))  # for exponential smoothing
 
-print(f"[INFO] Cache4Diffusion: USE_SMOOTHING={USE_SMOOTHING}, USE_HYBRID_SMOOTHING={USE_HYBRID_SMOOTHING}, SMOOTHING_METHOD={SMOOTHING_METHOD}, SMOOTHING_ALPHA={SMOOTHING_ALPHA}")
+FRESH_THRESHOLD = int(os.environ.get("FRESH_THRESHOLD", "1"))
+MAX_ORDER = int(os.environ.get("MAX_ORDER", "0"))
+FIRST_ENHANCE = int(os.environ.get("FIRST_ENHANCE", "3"))
+
+print(f"[INFO] Cache4Diffusion: USE_SMOOTHING={USE_SMOOTHING}, USE_HYBRID_SMOOTHING={USE_HYBRID_SMOOTHING}, SMOOTHING_METHOD={SMOOTHING_METHOD}, SMOOTHING_ALPHA={SMOOTHING_ALPHA}, FRESH_THRESHOLD={FRESH_THRESHOLD}, MAX_ORDER={MAX_ORDER}, FIRST_ENHANCE={FIRST_ENHANCE}")
 
 def cache_init(self: FluxTransformer2DModel, ):   
     '''
@@ -78,12 +79,12 @@ def cache_init(self: FluxTransformer2DModel, ):
         cache_dic['cache'] = cache
         cache_dic['fresh_ratio_schedule'] = 'ToCa' 
         cache_dic['fresh_ratio'] = 0.0
-        cache_dic['fresh_threshold'] = N
-        cache_dic['force_fresh'] = 'global' 
+        cache_dic['fresh_threshold'] = FRESH_THRESHOLD
+        cache_dic['force_fresh'] = 'global'
         cache_dic['soft_fresh_weight'] = 0.0
         cache_dic['taylor_cache'] = True
-        cache_dic['max_order'] = O
-        cache_dic['first_enhance'] = 3
+        cache_dic['max_order'] = MAX_ORDER
+        cache_dic['first_enhance'] = FIRST_ENHANCE
     
     # 新增：平滑相关配置
     cache_dic['use_smoothing'] = USE_SMOOTHING  # 是否启用平滑

@@ -21,6 +21,8 @@ def get_torch_dtype(dtype_name: str) -> torch.dtype:
         return torch.float16
     if dtype_name == "bfloat16":
         return torch.bfloat16
+    if dtype_name == "float8":
+        return torch.float8_e4m3fn
     return torch.float32
 
 
