@@ -184,9 +184,9 @@ CUDA_VISIBLE_DEVICES=0 torchrun --nproc_per_node=1 sample.py \
 # ...
 ```
 
-### Step 10: 删除 `cache_functions/cal_type.py`
+<!-- ### Step 10: 删除 `cache_functions/cal_type.py`
 
-`cal_type` 的逻辑已内联到各子模块的判断中（通过 `current['type']`），或保留但简化为 Step 3 的版本。建议保留，因为 `pipeline_stable_diffusion_xl.py` 的 denoising loop 中显式调用了 `cal_type()`。
+`cal_type` 的逻辑已内联到各子模块的判断中（通过 `current['type']`），或保留但简化为 Step 3 的版本。建议保留，因为 `pipeline_stable_diffusion_xl.py` 的 denoising loop 中显式调用了 `cal_type()`。 -->
 
 ## 不改什么
 
@@ -209,6 +209,8 @@ CUDA_VISIBLE_DEVICES=0 torchrun --nproc_per_node=1 sample.py \
 - 目录名 `fastercache_sdxl/`，与 `qwen_fastercache/` 命名风格一致
 
 ## 如何验证
+
+使用 conda run qwenimage xxx 开启 qwenimage 环境运行
 
 1. **单图生成测试**：用单张 prompt 跑一遍 `sample.py`，确认无报错，输出图像非全黑/全噪声
 2. **FLOPs 对比**：`--test_FLOPs` 跑一次，打印的 FLOPs 应低于基线，加速比 ≈ `(N - start_step) / N * (interval - 1) / interval`（粗估，实际取决于 interval 和 warm-up）

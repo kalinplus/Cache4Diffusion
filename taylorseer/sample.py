@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from cache_functions import cache_init, pipe_with_cache
 from pipelines.pipeline_stable_diffusion_xl import StableDiffusionXLPipeline
+from diffusers import AutoencoderKL
 
 @dataclass
 class SamplingOptions:
@@ -43,10 +44,16 @@ def main(opts: SamplingOptions):
         os.makedirs(opts.output_dir, exist_ok=True)
 
     # load base model
+    model_path = os.environ.get("SDXL_MODEL_PATH", "stabilityai/stable-diffusion-xl-base-1.0")
+    vae = AutoencoderKL.from_pretrained(
+        os.environ.get("SDXL_VAE_PATH", "madebyollin/sdxl-vae-fp16-fix"),
+        torch_dtype=torch.float16,
+    )
     pipe = StableDiffusionXLPipeline.from_pretrained(
-        "stabilityai/stable-diffusion-xl-base-1.0", 
-        torch_dtype=torch.float16, 
-        variant="fp16", 
+        model_path,
+        vae=vae,
+        torch_dtype=torch.float16,
+        variant="fp16",
         use_safetensors=True
     ).to("cuda")
     pipe = pipe_with_cache(pipe)

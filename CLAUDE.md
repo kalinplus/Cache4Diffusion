@@ -13,6 +13,18 @@ Research benchmark comparing attention cache acceleration methods for diffusion 
 
 All SDXL subprojects share the same base model (`stabilityai/stable-diffusion-xl-base-1.0`, fp16) and evaluation pipeline (DrawBench200 prompts).
 
+### VAE fp16 Fix
+
+SDXL's default VAE produces `RuntimeError: expected scalar type Half but found Float` when decoding in fp16 (GroupNorm dtype mismatch). **All SDXL subprojects must use `madebyollin/sdxl-vae-fp16-fix`** instead of the default VAE:
+
+```python
+from diffusers import AutoencoderKL
+vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16)
+pipe = StableDiffusionXLPipeline.from_pretrained(model_path, vae=vae, torch_dtype=torch.float16)
+```
+
+Set `SDXL_VAE_PATH` env var to use a local copy instead of downloading from HuggingFace Hub.
+
 ## Environment Setup
 
 ```bash
@@ -27,7 +39,7 @@ pip install git+https://github.com/chengzegang/calculate-flops.pytorch.git
 pip install transformers==4.55.4
 ```
 
-Required HuggingFace models: `stabilityai/stable-diffusion-xl-base-1.0`, `zai-org/ImageReward`, `laion/CLIP-ViT-g-14-laion2B-s12B-b42K`, `laion/CLIP-ViT-H-14-laion2B-s32B-b79K`, `yuvalkirstain/PickScore_v1`.
+Required HuggingFace models: `stabilityai/stable-diffusion-xl-base-1.0`, `madebyollin/sdxl-vae-fp16-fix`, `zai-org/ImageReward`, `laion/CLIP-ViT-g-14-laion2B-s12B-b42K`, `laion/CLIP-ViT-H-14-laion2B-s32B-b79K`, `yuvalkirstain/PickScore_v1`.
 
 ## Running
 
@@ -59,7 +71,14 @@ Evaluation (same `evaluate.py` across SDXL subprojects):
 CUDA_VISIBLE_DEVICES=0 python evaluate.py --test_folder samples/N7_FFT_ZCache
 ```
 
-Batch runs: each subproject has a `run.sh` that sweeps intervals/methods and evaluates all settings.
+Batch runs: each subproject has a `run.sh` / `run_infer.sh` that sweeps intervals/methods and evaluates all settings.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SDXL_MODEL_PATH` | `stabilityai/stable-diffusion-xl-base-1.0` | Local path to SDXL base model |
+| `SDXL_VAE_PATH` | `madebyollin/sdxl-vae-fp16-fix` | Local path to fp16-fix VAE |
 
 ## Architecture
 
