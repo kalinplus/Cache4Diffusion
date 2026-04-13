@@ -4,7 +4,7 @@ import re
 import time
 
 import torch
-from diffusers import DiffusionPipeline
+from diffusers import DiffusionPipeline, FluxTransformer2DModel, BitsAndBytesConfig as DiffusersBnBConfig
 
 from cache_functions import cache_init, cal_type
 from forwards import (
@@ -50,6 +50,14 @@ def parse_args() -> argparse.Namespace:
                         help="Path to a LoRA safetensors file.")
     parser.add_argument("--lora_scale", type=float, default=1.0,
                         help="LoRA weight scale (default: 1.0).")
+    parser.add_argument("--transformer_file", type=str, default=None,
+                        help="Path to a single-file transformer (e.g., NF4 safetensors). "
+                             "If provided, the transformer will be loaded via from_single_file "
+                             "and the base --model will be used for remaining pipeline components.")
+    parser.add_argument("--quantize", type=str, default="none",
+                        choices=["none", "nf4"],
+                        help="Quantization mode for the transformer. "
+                             "'nf4' loads the transformer with BitsAndBytes 4-bit NF4 quantization online.")
     parser.add_argument("--enable_cpu_offload", action="store_true")
     return parser.parse_args()
 
@@ -57,6 +65,9 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     os.makedirs(args.outdir, exist_ok=True)
+
+    if args.transformer_file and args.quantize != "none":
+        raise ValueError("--transformer_file and --quantize cannot be used together.")
 
     torch_dtype = get_torch_dtype(args.dtype)
     if args.device == "cpu" and torch_dtype in (torch.float16, torch.bfloat16):
@@ -67,7 +78,39 @@ def main() -> None:
         raise NotImplementedError("CPU offload is not supported for TaylorSeer yet.")
 
     print(f"Loading pipeline: {args.model} (dtype={torch_dtype}, device={args.device})")
-    pipeline = DiffusionPipeline.from_pretrained(args.model, torch_dtype=torch_dtype)
+    if args.transformer_file:
+        print(f"Loading transformer from single file: {args.transformer_file}")
+        transformer = FluxTransformer2DModel.from_single_file(
+            args.transformer_file,
+            config=args.model,
+            subfolder="transformer",
+            torch_dtype=torch_dtype,
+        )
+        pipeline = DiffusionPipeline.from_pretrained(
+            args.model,
+            transformer=transformer,
+            torch_dtype=torch_dtype,
+        )
+    elif args.quantize == "nf4":
+        print("Loading transformer with online NF4 quantization ...")
+        nf4_config = DiffusersBnBConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch_dtype,
+        )
+        transformer = FluxTransformer2DModel.from_pretrained(
+            args.model,
+            subfolder="transformer",
+            quantization_config=nf4_config,
+            torch_dtype=torch_dtype,
+        )
+        pipeline = DiffusionPipeline.from_pretrained(
+            args.model,
+            transformer=transformer,
+            torch_dtype=torch_dtype,
+        )
+    else:
+        pipeline = DiffusionPipeline.from_pretrained(args.model, torch_dtype=torch_dtype)
 
     if args.lora:
         pipeline.load_lora_weights(args.lora)

@@ -1,16 +1,29 @@
 # FLUX 量化 + TaylorSeer 指南
 
-> 基于[HuggingFace Issue 讨论](https://github.com/huggingface/diffusers/issues/9295)整理。
+> 基于[HuggingFace Issue 讨论](https://github.com/huggingface/diffusers/issues/9295)整理，并补充了本项目的实测结果。
 
 ## 1. Diffusers 兼容的量化方案
 
-| 模型 | diffusers 兼容 | 加载方式 | 适用显存 |
-|------|---------------|----------|---------|
-| `black-forest-labs/FLUX.1-dev` | ✅ | `torch_dtype=torch.bfloat16` | 16GB+ |
-| `black-forest-labs/FLUX.1-dev` (FP8) | ✅ | `torch_dtype=torch.float8_e4m3fn` | 12GB+ |
-| `sayakpaul/flux.1-dev-nf4` | ✅ | NF4 量化，`torch_dtype=torch.bfloat16` | 6-12GB |
-| `lllyasviel/flux1-dev-bnb-nf4` | ✅ | BnB NF4 量化 | 6-12GB |
-| `Kijai/flux-fp8` | ❌ | 仅 ComfyUI，结构不同 | — |
+| 模型 | diffusers 兼容 | 实测状态 | 适用显存 | 说明 |
+|------|---------------|---------|---------|------|
+| `black-forest-labs/FLUX.1-dev` (BF16) | ✅ | 可用 | 35GB+ | 原版模型，无量化 |
+| `black-forest-labs/FLUX.1-dev` (FP8) | ⚠️ | **失败** | — | `transformers` 加载 text encoder 时 `Float8_e4m3fnStorage` 报错 |
+| `sayakpaul/flux.1-dev-nf4` | — | 未测 | 6-12GB | 社区预量化 NF4 |
+| `lllyasviel/flux1-dev-bnb-nf4` | ⚠️ | **失败** | — | 单文件 `safetensors` 在 `dispatch_model` 阶段报 `Cannot copy out of meta tensor` |
+| **原版 + 在线 NF4** | ✅ | **成功** | **~19GB** | **当前唯一可行的量化路径**，对原版 transformer 在线做 BnB NF4 |
+
+### 显存构成实测（在线 NF4 量化后）
+
+仅对 `transformer` 做 NF4 量化，T5/CLIP/VAE 保持 `bfloat16`：
+
+| 组件 | BF16 显存 | NF4 后显存 | 是否量化 |
+|------|----------|-----------|---------|
+| Transformer | ~24 GB | ~8–9 GB | ✅ 已量化 |
+| T5 Text Encoder | ~9–10 GB | ~9–10 GB | ❌ 未量化 |
+| CLIP Text Encoder | ~1 GB | ~1 GB | ❌ 未量化 |
+| VAE | ~0.3 GB | ~0.3 GB | ❌ 未量化 |
+| 调度器 / 其他 | ~0.5 GB | ~0.5 GB | ❌ 未量化 |
+| **总计** | **~35 GB** | **~19 GB** | — |
 
 ## 2. 环境要求
 
@@ -27,9 +40,15 @@ pip install git+https://github.com/huggingface/accelerate
 pip install "transformers>=4.43.2"
 ```
 
-## 3. 适配 flux_simple 代码
+## 3. 实测结论
 
-当前 `get_torch_dtype()`（`inference_utils.py`）仅支持 `float16/bfloat16/float32`，需增加 FP8 映射：
+- **在线 NF4 量化是唯一在当前 diffusers + transformers 组合下实测通过的路径。**
+- **FP8 失败原因**：PyTorch 不支持 `torch.float8_e4m3fn` 作为全局默认 dtype，`transformers` 在加载 text encoder（T5/CLIP）时调用 `torch.set_default_dtype(torch.float8_e4m3fn)`，触发 `TypeError: couldn't find storage object Float8_e4m3fnStorage`。
+- **lllyasviel 单文件 NF4 失败原因**：`FluxTransformer2DModel.from_single_file()` 加载 BnB 量化权重后，模型权重处于 `meta` 设备；后续 `DiffusionPipeline.from_pretrained(..., transformer=transformer)` 在 `dispatch_model` → `model.to(device)` 时尝试拷贝 meta tensor，导致 `NotImplementedError: Cannot copy out of meta tensor; no data!`。
+
+## 4. 适配 flux_simple 代码
+
+当前 `get_torch_dtype()`（`inference_utils.py`）已支持 `float16/bfloat16/float32/float8`：
 
 ```python
 # inference_utils.py — get_torch_dtype()
@@ -43,12 +62,23 @@ def get_torch_dtype(dtype_name: str) -> torch.dtype:
     return torch.float32
 ```
 
-之后启动时传 `--dtype float8` 即可，`setup_pipeline()` 内部无需改动，因为 `DiffusionPipeline.from_pretrained(model_path, torch_dtype=torch.float8_e4m3fn)` 是 diffusers 原生支持的。
-
-### FP8 用法
+### 在线 NF4 量化（推荐）
 
 ```bash
 cd flux_simple/taylorseer_flux
+python diffusers_taylorseer_flux.py \
+    --model /mnt/data0/pretrained_models/black-forest-labs/FLUX.1-dev \
+    --steps 50 --dtype bfloat16 \
+    --quantize nf4 \
+    --guidance_scale 7.5 \
+    --prompt "your prompt"
+```
+
+`batch_infer.py` 与 `scripts/infer_taylorseer_multi_flux.sh` 同样支持 `--quantize nf4`。
+
+### FP8 用法（已知会失败，仅供参考）
+
+```bash
 python diffusers_taylorseer_flux.py \
     --model /path/to/FLUX.1-dev \
     --steps 50 --dtype float8 \
@@ -56,18 +86,21 @@ python diffusers_taylorseer_flux.py \
     --prompt "your prompt"
 ```
 
-### NF4 用法
+> 在当前环境下会报 `Float8_e4m3fnStorage` 错误，暂不可用。
 
-NF4 版本（如 `sayakpaul/flux.1-dev-nf4`）已经是量化好的权重，加载时仍用 `bfloat16`：
+### BnB NF4 单文件加载（已知会失败）
 
 ```bash
 python diffusers_taylorseer_flux.py \
-    --model sayakpaul/flux.1-dev-nf4 \
+    --model /mnt/data0/pretrained_models/black-forest-labs/FLUX.1-dev \
+    --transformer_file /path/to/flux1-dev-bnb-nf4-v2.safetensors \
     --steps 50 --dtype bfloat16 \
     --prompt "your prompt"
 ```
 
-## 4. 量化 + TaylorSeer 注意事项
+> 会报 `Cannot copy out of meta tensor; no data!`，暂不可用。
+
+## 5. 量化 + TaylorSeer 注意事项
 
 **FP8 精度风险**：TaylorSeer 缓存中间激活做 Taylor 近似，FP8 精度低，缓存误差可能累积放大，导致生成质量下降。
 
@@ -78,4 +111,4 @@ python diffusers_taylorseer_flux.py \
 
 如果 FP8 质量明显下降，可能需要让缓存部分保持更高精度（需改 `taylorseer_core/math.py` 的 cache 存储 dtype）。
 
-**NF4 + TaylorSeer**：NF4 量化由 BnB 在推理时动态反量化到 bfloat16 计算，对 TaylorSeer 缓存的精度影响较小，兼容性应优于 FP8。
+**NF4 + TaylorSeer**：NF4 量化由 BnB 在推理时动态反量化到 bfloat16 计算，对 TaylorSeer 缓存的精度影响较小，兼容性优于 FP8。

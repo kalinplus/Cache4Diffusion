@@ -6,7 +6,15 @@ base_outdir="/home/hkl/Cache4Diffusion/flux_simple/outputs"
 prompt_file="/home/hkl/Cache4Diffusion/assets/prompts/DrawBench200.txt"
 
 # 支持的 dtype: float16, bfloat16, float8, float32
-dtype="float8"
+dtype="float16"
+
+# 在线量化: none / nf4
+quantize="nf4"
+
+# NF4 单文件 transformer: 设置路径启用，留空则使用默认 diffusers 格式加载
+# 注意: --transformer_file 与 --quantize 不能同时启用
+# transformer_file="/path/to/flux1-dev-bnb-nf4-v2.safetensors"
+transformer_file=""
 
 # LoRA: 设置路径启用，留空禁用
 # 黑白漫画风格 LoRA
@@ -16,12 +24,12 @@ dtype="float8"
 # 写实风格 LoRA
 # lora_path="/mnt/data0/pretrained_models/flux_lora/realism_lora.safetensors"
 # flux-anime LoRA
-lora_path="/mnt/data0/pretrained_models/flux_lora/anime_lora.safetensors"
-lora_scale=1.0
+# lora_path="/mnt/data0/pretrained_models/flux_lora/anime_lora.safetensors"
+# lora_scale=1.0
 
 cd flux_simple
 export PYTHONPATH="/home/hkl/Cache4Diffusion/flux_simple:${PYTHONPATH:-}"
-export CUDA_VISIBLE_DEVICES=7
+export CUDA_VISIBLE_DEVICES=2
 
 # Smoothing parameters
 USE_SMOOTHING="False"
@@ -59,17 +67,19 @@ for n in "${N[@]}"; do
                     lora_name="lora-none"
                 fi
 
-                current_outdir="${base_outdir}/${dtype}/${lora_name}/N${n}O${o}F${f}A${alpha}"
+                current_outdir="${base_outdir}/${dtype}/${lora_name}/quant-${quantize:-none}/N${n}O${o}F${f}A${alpha}"
 
                 python taylorseer_flux/batch_infer.py \
                     --model "$local_model_path" \
                     --steps 50 \
                     --seed 42 \
-                    --dtype "$dtype" \
                     --guidance_scale 7.5 \
                     --outdir "$current_outdir" \
                     --prefix ts_smooth \
                     --prompt_file "$prompt_file" \
+                    --dtype "$dtype" \
+                    ${quantize:+--quantize "$quantize"} \
+                    ${transformer_file:+--transformer_file "$transformer_file"} \
                     ${lora_path:+--lora "$lora_path"} \
                     ${lora_path:+--lora_scale "$lora_scale"}
 
