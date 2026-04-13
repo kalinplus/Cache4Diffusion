@@ -1,14 +1,27 @@
+#!/usr/bin/env bash
 local_model_path="/mnt/data0/pretrained_models/black-forest-labs/FLUX.1-dev"
 model_id="black-forest-labs/FLUX.1-dev"
 
-base_outdir="/home/hkl/Cache4Diffusion/flux_simple/outputs/"
+base_outdir="/home/hkl/Cache4Diffusion/flux_simple/outputs"
 prompt_file="/home/hkl/Cache4Diffusion/assets/prompts/DrawBench200.txt"
 
 # 支持的 dtype: float16, bfloat16, float8, float32
 dtype="float8"
 
+# LoRA: 设置路径启用，留空禁用
+# 黑白漫画风格 LoRA
+# lora_path="/mnt/data0/pretrained_models/flux_lora/glif-anime-blockprint-style/bwmanga.safetensors"
+# 动漫风格 LoRA
+# lora_path="/mnt/data0/pretrained_models/flux_lora/nerijs-animation2k-flux/animation2k_v1.safetensors"
+# 写实风格 LoRA
+# lora_path="/mnt/data0/pretrained_models/flux_lora/realism_lora.safetensors"
+# flux-anime LoRA
+lora_path="/mnt/data0/pretrained_models/flux_lora/anime_lora.safetensors"
+lora_scale=1.0
+
 cd flux_simple
-export CUDA_VISIBLE_DEVICES='0'
+export PYTHONPATH="/home/hkl/Cache4Diffusion/flux_simple:${PYTHONPATH:-}"
+export CUDA_VISIBLE_DEVICES=7
 
 # Smoothing parameters
 USE_SMOOTHING="False"
@@ -39,8 +52,14 @@ for n in "${N[@]}"; do
                     export SMOOTHING_ALPHA="$alpha"
                 fi
 
-                # 为每个 N, O, F, alpha 组合创建独立的输出子目录
-                current_outdir="${base_outdir}/${dtype}/N${n}O${o}F${f}A${alpha}"
+                # 从 lora_path 提取文件名（无扩展名）作为目录标签
+                if [ -n "$lora_path" ]; then
+                    lora_name="lora-$(basename "$lora_path" .safetensors)"
+                else
+                    lora_name="lora-none"
+                fi
+
+                current_outdir="${base_outdir}/${dtype}/${lora_name}/N${n}O${o}F${f}A${alpha}"
 
                 python taylorseer_flux/batch_infer.py \
                     --model "$local_model_path" \
@@ -50,7 +69,9 @@ for n in "${N[@]}"; do
                     --guidance_scale 7.5 \
                     --outdir "$current_outdir" \
                     --prefix ts_smooth \
-                    --prompt_file "$prompt_file"
+                    --prompt_file "$prompt_file" \
+                    ${lora_path:+--lora "$lora_path"} \
+                    ${lora_path:+--lora_scale "$lora_scale"}
 
                 echo "Finished dtype=$dtype alpha=$alpha. Results saved to $current_outdir"
             done

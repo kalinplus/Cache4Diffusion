@@ -5,8 +5,14 @@ import time
 from typing import List, Optional
 
 import torch
+from diffusers import DiffusionPipeline
 
-from inference_utils import get_torch_dtype, setup_pipeline
+from cache_functions import cache_init, cal_type
+from forwards import (
+    taylorseer_flux_forward,
+    taylorseer_flux_single_block_forward,
+    taylorseer_flux_double_block_forward,
+)
 
 
 def sanitize_filename(text: str, max_length: int = 80) -> str:
@@ -17,6 +23,16 @@ def sanitize_filename(text: str, max_length: int = 80) -> str:
     if len(text) == 0:
         text = "prompt"
     return text[:max_length]
+
+
+def get_torch_dtype(dtype_name: str) -> torch.dtype:
+    if dtype_name == "float16":
+        return torch.float16
+    if dtype_name == "bfloat16":
+        return torch.bfloat16
+    if dtype_name == "float8":
+        return torch.float8_e4m3fn
+    return torch.float32
 
 
 def parse_args() -> argparse.Namespace:
@@ -37,9 +53,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--width", type=int, default=1024)
     parser.add_argument("--guidance_scale", type=float, default=7.5)
     parser.add_argument("--max_images", type=int, default=None)
-    parser.add_argument("--strategy", type=str, default="taylorseer", choices=["taylorseer"])
-    parser.add_argument("--model_name", type=str, default="flux",
-                        help="Adapter name for patch_model_with_cache, e.g. 'flux' or 'qwen_image'.")
+    parser.add_argument("--lora", type=str, default=None,
+                        help="Path to a LoRA safetensors file.")
+    parser.add_argument("--lora_scale", type=float, default=1.0,
+                        help="LoRA weight scale (default: 1.0).")
     return parser.parse_args()
 
 
@@ -65,8 +82,31 @@ def main() -> None:
         raise NotImplementedError("CPU offload is not supported for TaylorSeer yet.")
 
     print(f"Loading pipeline: {args.model} (dtype={torch_dtype}, device={args.device})")
-    pipeline = setup_pipeline(args.model, int(args.steps), args.strategy, args.model_name,
-                              torch_dtype, args.device)
+    pipeline = DiffusionPipeline.from_pretrained(args.model, torch_dtype=torch_dtype)
+
+    if args.lora:
+        pipeline.load_lora_weights(args.lora, adapter_name="default")
+        if args.lora_scale != 1.0:
+            pipeline.set_adapters(["default"], adapter_weights=[args.lora_scale])
+
+    # Patch transformer forward with TaylorSeer
+    pipeline.transformer.__class__.num_steps = int(args.steps)
+    pipeline.transformer.forward = taylorseer_flux_forward.__get__(
+        pipeline.transformer, pipeline.transformer.__class__
+    )
+    for block in pipeline.transformer.transformer_blocks:
+        block.forward = taylorseer_flux_double_block_forward.__get__(
+            block, block.__class__
+        )
+    for block in pipeline.transformer.single_transformer_blocks:
+        block.forward = taylorseer_flux_single_block_forward.__get__(
+            block, block.__class__
+        )
+
+    if hasattr(pipeline, 'vae'):
+        pipeline.vae.enable_tiling()
+
+    pipeline.to(args.device)
 
     prompts = read_prompts(args.prompt_file, args.max_images)
     if len(prompts) == 0:
@@ -123,4 +163,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

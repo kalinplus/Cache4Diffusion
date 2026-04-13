@@ -3,7 +3,7 @@
 # FLUX-schnell TaylorSeer 批量推理脚本
 # 模仿 sample_gedit.sh 风格，适配 schnell 特有约束（4步、无 guidance）
 
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=5
 export FLUX_MODEL="/mnt/data0/pretrained_models/black-forest-labs/FLUX.1-schnell/flux1-schnell.safetensors"
 export FLUX_AE="/mnt/data0/pretrained_models/black-forest-labs/FLUX.1-schnell/ae.safetensors"
 export T5_MODEL_PATH="/mnt/data0/pretrained_models/google/t5-v1_1-xxl"
@@ -15,10 +15,14 @@ USE_HYBRID_SMOOTHING="False"
 SMOOTHING_METHOD="exponential"
 PRINT_SMOOTHING_CONFIG="True"
 
-INTERVAL=(2 4)
-MAX_ORDERS=(0 1 2)
-FIRST_ENHANCE=(1)
-ALPHAS=(0.8 0)
+# INTERVAL=(2 4)
+# MAX_ORDERS=(0 1 2)
+# FIRST_ENHANCE=(1)
+# ALPHAS=(0.8 0)
+INTERVAL=(2)
+MAX_ORDERS=(0)
+FIRST_ENHANCE=(50)
+ALPHAS=(0)
 PROMPT_FILE="assets/prompts/DrawBench200.txt"
 
 for interval in "${INTERVAL[@]}"; do

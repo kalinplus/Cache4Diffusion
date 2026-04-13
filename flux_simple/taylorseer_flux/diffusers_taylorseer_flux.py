@@ -4,8 +4,14 @@ import re
 import time
 
 import torch
+from diffusers import DiffusionPipeline
 
-from inference_utils import get_torch_dtype, setup_pipeline
+from cache_functions import cache_init, cal_type
+from forwards import (
+    taylorseer_flux_forward,
+    taylorseer_flux_single_block_forward,
+    taylorseer_flux_double_block_forward,
+)
 
 
 def sanitize_filename(text: str, max_length: int = 80) -> str:
@@ -18,20 +24,32 @@ def sanitize_filename(text: str, max_length: int = 80) -> str:
     return text[:max_length]
 
 
+def get_torch_dtype(dtype_name: str) -> torch.dtype:
+    if dtype_name == "float16":
+        return torch.float16
+    if dtype_name == "bfloat16":
+        return torch.bfloat16
+    if dtype_name == "float8":
+        return torch.float8_e4m3fn
+    return torch.float32
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Single-prompt inference with TaylorSeer caching")
     parser.add_argument("--prompt", type=str, required=True)
     parser.add_argument("--steps", type=int, default=50)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--dtype", type=str, default="float16", choices=["float16", "bfloat16", "float32"])
+    parser.add_argument("--dtype", type=str, default="float16",
+                        choices=["float16", "bfloat16", "float32", "float8"])
     parser.add_argument("--guidance_scale", type=float, default=7.5)
     parser.add_argument("--outdir", type=str, default="outputs")
     parser.add_argument("--prefix", type=str, default="TaylorSeer")
     parser.add_argument("--model", type=str, default="black-forest-labs/FLUX.1-dev")
     parser.add_argument("--device", type=str, default="cuda", choices=["cuda", "cpu"])
-    parser.add_argument("--strategy", type=str, default="taylorseer", choices=["taylorseer"])
-    parser.add_argument("--model_name", type=str, default="flux",
-                        help="Adapter name for patch_model_with_cache, e.g. 'flux' or 'qwen_image'.")
+    parser.add_argument("--lora", type=str, default=None,
+                        help="Path to a LoRA safetensors file.")
+    parser.add_argument("--lora_scale", type=float, default=1.0,
+                        help="LoRA weight scale (default: 1.0).")
     parser.add_argument("--enable_cpu_offload", action="store_true")
     return parser.parse_args()
 
@@ -48,8 +66,32 @@ def main() -> None:
     if args.enable_cpu_offload:
         raise NotImplementedError("CPU offload is not supported for TaylorSeer yet.")
 
-    pipeline = setup_pipeline(args.model, int(args.steps), args.strategy, args.model_name,
-                              torch_dtype, args.device)
+    print(f"Loading pipeline: {args.model} (dtype={torch_dtype}, device={args.device})")
+    pipeline = DiffusionPipeline.from_pretrained(args.model, torch_dtype=torch_dtype)
+
+    if args.lora:
+        pipeline.load_lora_weights(args.lora)
+        if args.lora_scale != 1.0:
+            pipeline.set_adapters(["default"], weights=[args.lora_scale])
+
+    # Patch transformer forward with TaylorSeer
+    pipeline.transformer.__class__.num_steps = int(args.steps)
+    pipeline.transformer.forward = taylorseer_flux_forward.__get__(
+        pipeline.transformer, pipeline.transformer.__class__
+    )
+    for block in pipeline.transformer.transformer_blocks:
+        block.forward = taylorseer_flux_double_block_forward.__get__(
+            block, block.__class__
+        )
+    for block in pipeline.transformer.single_transformer_blocks:
+        block.forward = taylorseer_flux_single_block_forward.__get__(
+            block, block.__class__
+        )
+
+    if hasattr(pipeline, 'vae'):
+        pipeline.vae.enable_tiling()
+
+    pipeline.to(args.device)
 
     is_cuda = args.device == "cuda" and torch.cuda.is_available()
     if is_cuda:
