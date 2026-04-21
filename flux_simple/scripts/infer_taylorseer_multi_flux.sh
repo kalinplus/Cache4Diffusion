@@ -9,7 +9,7 @@ prompt_file="/home/hkl/Cache4Diffusion/assets/prompts/DrawBench200.txt"
 dtype="float16"
 
 # 在线量化: none / nf4
-quantize="nf4"
+quantize="none"
 
 # NF4 单文件 transformer: 设置路径启用，留空则使用默认 diffusers 格式加载
 # 注意: --transformer_file 与 --quantize 不能同时启用
@@ -20,26 +20,27 @@ transformer_file=""
 # 黑白漫画风格 LoRA
 # lora_path="/mnt/data0/pretrained_models/flux_lora/glif-anime-blockprint-style/bwmanga.safetensors"
 # 动漫风格 LoRA
-# lora_path="/mnt/data0/pretrained_models/flux_lora/nerijs-animation2k-flux/animation2k_v1.safetensors"
+lora_path="/mnt/data0/pretrained_models/flux_lora/nerijs-animation2k-flux/animation2k_v1.safetensors"
 # 写实风格 LoRA
 # lora_path="/mnt/data0/pretrained_models/flux_lora/realism_lora.safetensors"
 # flux-anime LoRA
 # lora_path="/mnt/data0/pretrained_models/flux_lora/anime_lora.safetensors"
-# lora_scale=1.0
+lora_scale=1.0
 
 cd flux_simple
 export PYTHONPATH="/home/hkl/Cache4Diffusion/flux_simple:${PYTHONPATH:-}"
-export CUDA_VISIBLE_DEVICES=2
+export CUDA_VISIBLE_DEVICES="6,7"
 
 # Smoothing parameters
 USE_SMOOTHING="False"
 USE_HYBRID_SMOOTHING="False"
 SMOOTHING_METHOD="exponential"
 
-N=(3 5 6)
-O=(0 1 2)
-F=(3)
-alphas=(0 0.8)
+N=(0)
+O=(0)
+F=(50)
+alphas=(0)
+steps=(50 16 10)
 
 for n in "${N[@]}"; do
     for o in "${O[@]}"; do
@@ -67,23 +68,25 @@ for n in "${N[@]}"; do
                     lora_name="lora-none"
                 fi
 
-                current_outdir="${base_outdir}/${dtype}/${lora_name}/quant-${quantize:-none}/N${n}O${o}F${f}A${alpha}"
+                for step in "${steps[@]}"; do
+                    current_outdir="${base_outdir}/${dtype}/${lora_name}/quant-${quantize:-none}/S${step}/N${n}O${o}F${f}A${alpha}"
 
-                python taylorseer_flux/batch_infer.py \
-                    --model "$local_model_path" \
-                    --steps 50 \
-                    --seed 42 \
-                    --guidance_scale 7.5 \
-                    --outdir "$current_outdir" \
-                    --prefix ts_smooth \
-                    --prompt_file "$prompt_file" \
-                    --dtype "$dtype" \
-                    ${quantize:+--quantize "$quantize"} \
-                    ${transformer_file:+--transformer_file "$transformer_file"} \
-                    ${lora_path:+--lora "$lora_path"} \
-                    ${lora_path:+--lora_scale "$lora_scale"}
+                    python taylorseer_flux/batch_infer.py \
+                        --model "$local_model_path" \
+                        --steps "$step" \
+                        --seed 42 \
+                        --guidance_scale 7.5 \
+                        --outdir "$current_outdir" \
+                        --prefix ts_smooth \
+                        --prompt_file "$prompt_file" \
+                        --dtype "$dtype" \
+                        ${quantize:+--quantize "$quantize"} \
+                        ${transformer_file:+--transformer_file "$transformer_file"} \
+                        ${lora_path:+--lora "$lora_path"} \
+                        ${lora_path:+--lora_scale "$lora_scale"}
 
-                echo "Finished dtype=$dtype alpha=$alpha. Results saved to $current_outdir"
+                    echo "Finished dtype=$dtype alpha=$alpha step=$step. Results saved to $current_outdir"
+                done
             done
         done
     done

@@ -1,0 +1,275 @@
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+32.2966
+0.8360
+inf
+1.0000
+0.0000
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N3O0F3A0
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+32.1774
+0.7984
+30.615
+0.7706
+0.2377
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N3O0F3A0.8
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+32.3705
+0.8670
+30.447
+0.7758
+0.2327
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N3O1F3A0
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+32.2118
+0.8623
+30.308
+0.7738
+0.2364
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N3O1F3A0.8
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+32.3705
+0.8670
+30.447
+0.7758
+0.2327
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N3O2F3A0
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+32.1496
+0.8701
+29.564
+0.7498
+0.2688
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N3O2F3A0.8
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+32.3655
+0.8764
+29.973
+0.7681
+0.2419
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N5O0F3A0
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+32.0005
+0.8217
+29.474
+0.7045
+0.3302
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N5O0F3A0.8
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+31.8617
+0.8016
+28.964
+0.6884
+0.3512
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N5O1F3A0
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+'(ReadTimeoutError("HTTPSConnectionPool(host='hf-mirror.com', port=443): Read timed out. (read timeout=10)"), '(Request ID: c64b1401-ec94-4cf9-b566-1fc0423ee3d0)')' thrown while requesting HEAD https://hf-mirror.com/bert-base-uncased/resolve/main/tokenizer_config.json
+Retrying in 1s [Retry 1/5].
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+31.8245
+0.8141
+28.902
+0.6824
+0.3621
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N5O1F3A0.8
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+31.8617
+0.8016
+28.964
+0.6884
+0.3512
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N5O2F3A0
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+31.6428
+0.7406
+28.513
+0.6431
+0.4336
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N5O2F3A0.8
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+31.6877
+0.7642
+28.712
+0.6720
+0.3863
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N6O0F3A0
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+31.6567
+0.7880
+29.184
+0.6669
+0.3757
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N6O0F3A0.8
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+31.2693
+0.7637
+28.651
+0.6519
+0.3991
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N6O1F3A0
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+31.4367
+0.7514
+28.610
+0.6422
+0.4163
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N6O1F3A0.8
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+31.2693
+0.7637
+28.651
+0.6519
+0.3991
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N6O2F3A0
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+31.3598
+0.6683
+28.362
+0.5871
+0.5086
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N6O2F3A0.8
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+31.4407
+0.7071
+28.492
+0.6266
+0.4522
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S10/N0O0F50A0
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+31.7618
+0.5820
+28.398
+0.6115
+0.5066
+
+========================================
+  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S16/N0O0F50A0
+  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+========================================
+load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
+checkpoint loaded
+Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
+32.1795
+0.8072
+28.705
+0.6589
+0.4203
+
