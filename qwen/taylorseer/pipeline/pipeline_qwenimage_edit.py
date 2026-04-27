@@ -796,6 +796,15 @@ class QwenImageEditPipeline(DiffusionPipeline, QwenImageLoraLoaderMixin):
             total_flops = 0
             total_macs = 0
             total_params = 0
+            from cache_functions import cache_init
+            profile_cache_dic, profile_current = cache_init(kwargs={
+                'num_steps': cache_dic['num_steps'],
+                'test_FLOPs': False,
+                'monitor_gpu_usage': False,
+                'interval': cache_dic['interval'],
+                'max_order': cache_dic['max_order'],
+                'first_enhance': cache_dic['first_enhance'],
+            })
 
         current['step'] = 0
 
@@ -816,11 +825,14 @@ class QwenImageEditPipeline(DiffusionPipeline, QwenImageLoraLoaderMixin):
 
             from cache_functions import cal_type
             cal_type(cache_dic=cache_dic, current=current)
+            if cache_dic['test_FLOPs']:
+                cal_type(cache_dic=profile_cache_dic, current=profile_current)
 
             with self.transformer.cache_context("cond"):
                 current['stream'] = 'cond'
 
                 if cache_dic['test_FLOPs']:
+                    profile_current['stream'] = 'cond'
                     inputs=dict(
                         hidden_states=latent_model_input,
                         timestep=timestep / 1000,
@@ -831,8 +843,8 @@ class QwenImageEditPipeline(DiffusionPipeline, QwenImageLoraLoaderMixin):
                         txt_seq_lens=txt_seq_lens,
                         attention_kwargs=self.attention_kwargs,
                         return_dict=False,
-                        cache_dic=cache_dic,
-                        current=current,
+                        cache_dic=profile_cache_dic,
+                        current=profile_current,
                     )
 
                     from calflops import calculate_flops
@@ -861,6 +873,7 @@ class QwenImageEditPipeline(DiffusionPipeline, QwenImageLoraLoaderMixin):
                     current['stream'] = 'uncond'
 
                     if cache_dic['test_FLOPs']:
+                        profile_current['stream'] = 'uncond'
                         inputs=dict(
                             hidden_states=latent_model_input,
                             timestep=timestep / 1000,
@@ -871,8 +884,8 @@ class QwenImageEditPipeline(DiffusionPipeline, QwenImageLoraLoaderMixin):
                             txt_seq_lens=negative_txt_seq_lens,
                             attention_kwargs=self.attention_kwargs,
                             return_dict=False,
-                            cache_dic=cache_dic,
-                            current=current,
+                            cache_dic=profile_cache_dic,
+                            current=profile_current,
                         )
 
                         from calflops import calculate_flops
@@ -927,17 +940,30 @@ class QwenImageEditPipeline(DiffusionPipeline, QwenImageLoraLoaderMixin):
                 xm.mark_step()
 
             current['step'] += 1
+            if cache_dic['test_FLOPs']:
+                profile_current['step'] += 1
 
         if cache_dic['monitor_gpu_usage']:
             current_mem_end, peak_mem_end = monitor_gpu_memory()
             print(f"GPU memory at the end: {current_mem_end:.4f}GB, peak: {peak_mem_end:.4f}GB")
             print(f"GPU memory usage: {peak_mem_end - current_mem_start:.4f}GB")
+            cache_dic.setdefault('metrics', {}).update({
+                'gpu_memory_start_gb': current_mem_start,
+                'gpu_memory_end_gb': current_mem_end,
+                'gpu_memory_peak_gb': peak_mem_end,
+                'gpu_memory_usage_gb': peak_mem_end - current_mem_start,
+            })
 
         if cache_dic['test_FLOPs']:
             print(f"Total FLOPs(T), MACs(T), Params(G):")
             print(f"{total_flops * 10**(-12):.2f}")
             print(f"{total_macs * 10**(-12):.2f}")
             print(f"{total_params * 10**(-9):.2f}")
+            cache_dic.setdefault('metrics', {}).update({
+                'flops': total_flops,
+                'macs': total_macs,
+                'params': total_params,
+            })
 
         self._current_timestep = None
         if output_type == "latent":

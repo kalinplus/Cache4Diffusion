@@ -131,26 +131,12 @@ output = sum(cache[i] * (x^i) / i! for i in range(max_order+1))
 
 ### 核心函数
 
-#### 1. `shift_cache_history(cache_dic, current)`
-**作用**：将 `cache[-1]` 迁移到 `cache[-2]`，为新的 full compute 做准备。
+#### 1. `shift_cache_history`（已废弃）
+**历史说明**：旧实现在 `update_cache_or_approximate` 开头调用此函数，将 `cache[-1]` 迁移到 `cache[-2]`。
 
-**调用时机**：在 `current['type'] == 'full'` 且 `use_smoothing=True` 时，在 `module_cache_init` 之前调用。
+**问题**：在 `update_cache_or_approximate` 开头调用会导致 `cache[-2]` 在 `_collect_history` 读取之前就被覆盖，使得平滑窗口退化为只有两个不同的时间点（见 Bug 3）。
 
-**实现**：
-```python
-def shift_cache_history(cache_dic, current):
-    if not cache_dic.get("taylor_cache", False):
-        return
-
-    cache = cache_dic["cache"]
-    s, l, m = current["stream"], current["layer"], current["module"]
-
-    if current["step"] == 0:
-        cache[-2][s][l][m] = {}  # 第一步时初始化为空
-        return
-
-    cache[-2][s][l][m] = cache[-1][s][l][m]  # 历史迁移
-```
+**当前行为**：历史保存已内联到 `derivative_approximation` / `derivative_approximation_with_smoothing` / `derivative_approximation_hybrid_smoothing` 的末尾——在覆盖 `cache[-1]` 之前，先将旧的 `cache[-1]` 保存到 `cache[-2]`。`shift_cache_history` 不再被显式调用。
 
 #### 2. `exponential_smoothing(features, alpha)`
 **作用**：对特征列表进行指数平滑。
@@ -225,12 +211,10 @@ def update_cache_or_approximate(cache_dic, current, feature):
         method = cache_dic.get('smoothing_method', 'exponential')
         alpha = cache_dic.get('smoothing_alpha', 0.8)
 
-        # 顺序很重要：先迁移历史，再初始化新槽位
-        if use_smoothing:
-            shift_cache_history(cache_dic, current)
         module_cache_init(cache_dic, current)
 
         # 根据配置选择导数计算方式
+        # derivative_approximation_* 内部会在覆盖 cache[-1] 之前自动保存旧值到 cache[-2]
         if use_smoothing and use_hybrid:
             derivative_approximation_hybrid_smoothing(cache_dic, current, feature, method, alpha)
         elif use_smoothing:
@@ -521,6 +505,137 @@ export SMOOTHING_ALPHA="0.8"
 **解决方案**：
 - 这是必要的开销，无法避免
 - 如果内存紧张，可以禁用平滑：`USE_SMOOTHING=False`
+
+---
+
+## 已知实现 Bug 与修复记录
+
+> 以下是在不同代码版本中实际发现并已修复的 bug。新增实现时务必对照检查，避免复现。
+
+### Bug 1：`shift_cache_history` 引用赋值导致历史特征重复
+
+**影响版本**：`qwen/taylorseer`、`flux_simple/taylorseer_core` 和 `HunyuanImage-2.1`（三者都有）
+
+**症状**：
+- `_collect_history_f0_fm1_fm2` / `get_smoothed_features` 返回的 raw features 为 `[F_{-1}, F_{-1}, F_0]`，其中两个历史特征是同一个 Tensor。
+- 指数平滑时 `smoothed[0] == smoothed[1]`，平滑窗口退化，平滑效果被严重削弱。
+
+**根本原因**：
+```python
+cache[-2][s][l][m] = cache[-1][s][l][m]  # 引用赋值！
+```
+`shift_cache_history` 执行后、`derivative_approximation_with_smoothing` 覆盖 `cache[-1]` 之前，`cache[-1]` 与 `cache[-2]` 指向同一个 `dict` 对象。历史收集函数从两者读取到的是同一组 Taylor factors。
+
+**修复**（2026-04-27）：改为 `dict` 浅拷贝（tensor 值只读，无需深拷贝）：
+```python
+cache[-2][s][l][m] = dict(cache[-1][s][l][m])
+```
+
+**修复文件**：
+- `qwen/taylorseer/cache_functions/cache_utils.py`
+- `flux_simple/taylorseer_core/math.py`
+- `HunyuanImage-2.1/scripts/taylorseer_lite_hyimage/taylorseer_utils.py`
+
+---
+
+### Bug 2：`derivative_approximation_with_smoothing` 导数索引错位（qwen/taylorseer 独有）
+
+**影响版本**：`qwen/taylorseer`
+
+**症状**：
+- 当 `max_order=1` 时，Taylor 展开的一阶导数系数始终为 **0**，导致缓存步骤的近似值完全不会随时间步更新（恒等于上一次的 0 阶特征）。
+- 生成图像质量严重下降，甚至接近纯噪声。
+
+**根本原因**：
+用循环按 `smoothed` 列表索引填充导数：
+```python
+for i in range(max_order):
+    idx = i + 1
+    updated_taylor_factors[idx] = (smoothed[idx] - smoothed[idx - 1]) / h
+```
+`smoothed` = `[F'_{-2}, F'_{-1}, F'_0]`（长度 3）。
+- `updated[1] = (smoothed[1] - smoothed[0]) / h` = `(F'_{-1} - F'_{-2}) / h` ← **这是上上步的一阶导数，不是当前的**
+- `updated[2] = (smoothed[2] - smoothed[1]) / h` = `(F'_0 - F'_{-1}) / h` ← **这是当前的一阶导数，但被错放到了 index 2**
+
+当 `max_order=1` 时循环只跑 `i=0`，`updated` 中只有 `[0]` 和 `[1]`，而 `[1]` 恰好是 0（因为 `F'_{-1}` 与 `F'_{-2}` 相同，见 Bug 1）。
+
+**修复**（2026-04-27）：改为与非平滑版本 `derivative_approximation` 完全一致的结构：
+```python
+updated_taylor_factors = {}
+updated_taylor_factors[0] = smoothed[-1]                    # 零阶：当前平滑特征
+updated_taylor_factors[1] = (smoothed[-1] - smoothed[-2]) / h  # 一阶：当前一阶导数
+
+for i in range(1, max_order):
+    prev_factor = cache_dic['cache'][-2][s][l][m].get(i, None)
+    if prev_factor is not None:
+        updated_taylor_factors[i + 1] = (updated_taylor_factors[i] - prev_factor) / h
+    else:
+        break
+```
+
+**修复文件**：
+- `qwen/taylorseer/cache_functions/cache_utils.py`
+
+---
+
+### Bug 3：`shift_cache_history` 调用时序错误导致平滑窗口退化（所有版本）
+
+**影响版本**：`qwen/taylorseer`、`flux_simple/taylorseer_core`、`HunyuanImage-2.1`（三者都有）
+
+**症状**：
+- 在 step \>= 4 的 full compute 步骤中，`_collect_history` / `get_smoothed_features` 读取到的历史特征为 `[F_{上次}, F_{上次}, F_{当前}]`，三个点中前两个完全相同。
+- 平滑窗口实际上只用了两个不同的时间点，而非设计意图中的三个。高阶导数计算（qwen/HunyuanImage 版本读取 `cache[-2]`）也会因 `cache[-2]` 被提前覆盖而使用错误的历史值。
+
+**根本原因**：
+```python
+def update_cache_or_approximate(cache_dic, current, feature):
+    if current['type'] == 'full':
+        shift_cache_history(cache_dic, current)  # ← 问题在这里
+        derivative_approximation_with_smoothing(cache_dic, current, feature)
+```
+`shift_cache_history` 在 `update_cache_or_approximate` 开头调用，把 `cache[-2]` 覆盖为 `cache[-1]` 的旧值。但此时 `cache[-1]` 还没有被当前值覆盖，两者内容相同。随后 `derivative_approximation_with_smoothing` 内部的 `_collect_history` 读取到的是两个相同的历史值。
+
+**修复**（2026-04-27）：从 `update_cache_or_approximate` 中移除 `shift_cache_history` 调用，将历史保存逻辑内联到 `derivative_approximation` / `derivative_approximation_with_smoothing` / `derivative_approximation_hybrid_smoothing` 的末尾——在覆盖 `cache[-1]` 之前，先将旧的 `cache[-1]` 保存到 `cache[-2]`：
+
+```python
+# 在每个 derivative_approximation_* 函数的末尾
+cache[-2][s][l][m] = dict(cache[-1][s][l][m])  # 先保存历史
+cache[-1][s][l][m] = updated                     # 再覆盖当前
+```
+
+这样 `_collect_history` 读取时，`cache[-1]` 和 `cache[-2]` 分别保存着"上次 full compute"和"上上次 full compute"的结果，平滑窗口恢复为三个不同的时间点。
+
+**修复文件**：
+- `qwen/taylorseer/cache_functions/cache_utils.py`
+- `flux_simple/taylorseer_core/math.py`
+- `flux_simple/taylorseer_core/forward_utils.py`
+- `HunyuanImage-2.1/scripts/taylorseer_lite_hyimage/taylorseer_utils.py`
+- `HunyuanImage-2.1/scripts/taylorseer_lite_hyimage/forwards/apply_taylorseer_lite_hyimage_forward.py`
+
+---
+
+### 修复验证记录（qwen/taylorseer，2026-04-27）
+
+设置 `USE_SMOOTHING=True` 运行后，开启 `TS_DEBUG_SMOOTH=1` 打印得到：
+
+```
+[TS][step=2][cond/0/img_attn] smooth: raw_len=3 ids=[..., ..., ...] id_dup=False
+[TS][step=2][cond/0/img_attn] smooth: saved to cache[-2] keys=[0], cache[-1] keys=[0, 1]
+
+[TS][step=8][cond/0/img_attn] smooth: raw_len=3 ids=[..., ..., ...] id_dup=False
+[TS][step=8][cond/0/img_attn] smooth: saved to cache[-2] keys=[0, 1], cache[-1] keys=[0, 1]
+
+[TS][step=14][cond/0/img_attn] smooth: raw_len=3 ids=[..., ..., ...] id_dup=False
+[TS][step=14][cond/0/img_attn] smooth: saved to cache[-2] keys=[0, 1], cache[-1] keys=[0, 1, 2]
+```
+
+**含义说明**：
+- `raw_len=3`：`_collect_history` 成功收集到三个不同时间点的特征 `[F_{-2}, F_{-1}, F_0]`
+- `id_dup=False`：三个 tensor 的内存地址各不相同，确认不是重复值
+- `cache[-2] keys=[0, 1]`：保存的是"上一次 full compute"的旧 Taylor factors（0 阶 + 1 阶导数）
+- `cache[-1] keys=[0, 1, 2]`：保存的是"当前 full compute"的新 Taylor factors（0 阶 + 1 阶 + 2 阶导数）
+
+**结论**：平滑窗口已恢复为三个真实历史点，高阶导数计算也能正确读取到上上次的缓存值，修复成功。
 
 ---
 

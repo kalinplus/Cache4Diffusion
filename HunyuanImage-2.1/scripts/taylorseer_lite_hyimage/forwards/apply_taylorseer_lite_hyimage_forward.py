@@ -6,7 +6,6 @@ from scripts.taylorseer_lite_hyimage.cache_utils import cal_type
 from scripts.taylorseer_lite_hyimage.taylorseer_utils import (
     derivative_approximation,
     derivative_approximation_with_smoothing,
-    shift_cache_history,
     taylor_formula,
     taylor_cache_init
 )
@@ -176,7 +175,6 @@ def apply_taylorseer_lite_hyimage_forward(model):
             img = self.final_layer(img, vec)
 
             if cache_dic.get('use_smoothing', False):
-                shift_cache_history(cache_dic, current)
                 derivative_approximation_with_smoothing(
                     cache_dic=cache_dic,
                     current=current,

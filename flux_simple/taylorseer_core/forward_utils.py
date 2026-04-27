@@ -11,7 +11,6 @@ from taylorseer_core.math import (
     derivative_approximation_hybrid_smoothing,
     taylor_formula,
     module_cache_init,
-    shift_cache_history,
 )
 
 
@@ -38,9 +37,6 @@ def update_cache_or_approximate(
         method = cache_dic.get('smoothing_method', 'exponential')
         alpha = cache_dic.get('smoothing_alpha', 0.8)
 
-        # Order matters: shift history first, then init new slot
-        if use_smoothing:
-            shift_cache_history(cache_dic, current)
         module_cache_init(cache_dic, current)
 
         if use_smoothing and use_hybrid:

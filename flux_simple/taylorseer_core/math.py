@@ -144,7 +144,7 @@ def shift_cache_history(cache_dic, current):
         cache[-2][s][l][m] = {}
         return
 
-    cache[-2][s][l][m] = cache[-1][s][l][m]
+    cache[-2][s][l][m] = dict(cache[-1][s][l][m])
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +191,10 @@ def derivative_approximation(cache_dic, current, feature):
         else:
             break
 
-    cache_dic['cache'][-1][current['stream']][current['layer']][current['module']] = updated
+    s, l, m = current["stream"], current["layer"], current["module"]
+    cache = cache_dic["cache"]
+    cache[-2][s][l][m] = dict(cache[-1][s][l][m])
+    cache[-1][s][l][m] = updated
 
 
 def _collect_history_f0_fm1_fm2(cache_dic, current, feature):
@@ -199,7 +202,7 @@ def _collect_history_f0_fm1_fm2(cache_dic, current, feature):
     cache = cache_dic["cache"]
     s, l, m = current["stream"], current["layer"], current["module"]
     entry_m1 = cache[-1][s][l][m]
-    entry_m2 = cache[-2][s][l][m]
+    entry_m2 = cache[-2].get(s, {}).get(l, {}).get(m, {})
     feats = []
     if entry_m2.get(0, None) is not None:
         feats.append(entry_m2[0])
@@ -259,6 +262,7 @@ def derivative_approximation_with_smoothing(
         else:
             break
 
+    cache[-2][s][l][m] = dict(cache[-1][s][l][m])
     cache[-1][s][l][m] = updated
 
 
@@ -304,6 +308,7 @@ def derivative_approximation_hybrid_smoothing(
             else:
                 break
 
+    cache[-2][s][l][m] = dict(cache[-1][s][l][m])
     cache[-1][s][l][m] = updated
 
 

@@ -21,7 +21,10 @@ def derivative_approximation(cache_dic: Dict, current: Dict, feature: torch.Tens
         else:
             break
 
-    cache_dic['cache'][-1][current['stream']][current['layer']][current['module']] = updated_taylor_factors
+    s, l, m = current['stream'], current['layer'], current['module']
+    cache = cache_dic['cache']
+    cache[-2][s][l][m] = dict(cache[-1][s][l][m])
+    cache[-1][s][l][m] = updated_taylor_factors
 
 
 def taylor_formula(cache_dic: Dict, current: Dict) -> torch.Tensor:
@@ -66,7 +69,7 @@ def shift_cache_history(cache_dic: Dict, current: Dict):
         cache[-2][s][l][m] = {}
         return
 
-    cache[-2][s][l][m] = cache[-1][s][l][m]
+    cache[-2][s][l][m] = dict(cache[-1][s][l][m])
 
 
 def _collect_history_f0_fm1_fm2(cache_dic: Dict, current: Dict, feature: torch.Tensor) -> List[torch.Tensor]:
@@ -76,7 +79,7 @@ def _collect_history_f0_fm1_fm2(cache_dic: Dict, current: Dict, feature: torch.T
     cache = cache_dic["cache"]
     s, l, m = current["stream"], current["layer"], current["module"]
     entry_m1 = cache[-1][s][l][m]
-    entry_m2 = cache[-2][s][l][m]
+    entry_m2 = cache[-2].get(s, {}).get(l, {}).get(m, {})
 
     feats = []
     if entry_m2.get(0, None) is not None:
@@ -179,4 +182,5 @@ def derivative_approximation_with_smoothing(
         else:
             break
 
+    cache[-2][s][l][m] = dict(cache[-1][s][l][m])
     cache[-1][s][l][m] = updated_taylor_factors
