@@ -796,15 +796,6 @@ class QwenImageEditPipeline(DiffusionPipeline, QwenImageLoraLoaderMixin):
             total_flops = 0
             total_macs = 0
             total_params = 0
-            from cache_functions import cache_init
-            profile_cache_dic, profile_current = cache_init(kwargs={
-                'num_steps': cache_dic['num_steps'],
-                'test_FLOPs': False,
-                'monitor_gpu_usage': False,
-                'interval': cache_dic['interval'],
-                'max_order': cache_dic['max_order'],
-                'first_enhance': cache_dic['first_enhance'],
-            })
 
         current['step'] = 0
 
@@ -825,15 +816,43 @@ class QwenImageEditPipeline(DiffusionPipeline, QwenImageLoraLoaderMixin):
 
             from cache_functions import cal_type
             cal_type(cache_dic=cache_dic, current=current)
-            if cache_dic['test_FLOPs']:
-                cal_type(cache_dic=profile_cache_dic, current=profile_current)
 
             with self.transformer.cache_context("cond"):
                 current['stream'] = 'cond'
 
                 if cache_dic['test_FLOPs']:
-                    profile_current['stream'] = 'cond'
-                    inputs=dict(
+                    from calflops.calculate_pipline import CalFlopsPipline
+                    flops_counter = CalFlopsPipline(
+                        model=self.transformer,
+                        include_backPropagation=False,
+                        compute_bp_factor=2.0,
+                        is_sparse=False,
+                    )
+                    flops_counter.start_flops_calculate()
+                    try:
+                        noise_pred = self.transformer(
+                            hidden_states=latent_model_input,
+                            timestep=timestep / 1000,
+                            guidance=guidance,
+                            encoder_hidden_states_mask=prompt_embeds_mask,
+                            encoder_hidden_states=prompt_embeds,
+                            img_shapes=img_shapes,
+                            txt_seq_lens=txt_seq_lens,
+                            attention_kwargs=self.attention_kwargs,
+                            return_dict=False,
+                            cache_dic=cache_dic,
+                            current=current,
+                        )[0]
+                        flops = flops_counter.get_total_flops()
+                        macs = flops_counter.get_total_macs()
+                        params = flops_counter.get_total_params()
+                    finally:
+                        flops_counter.end_flops_calculate()
+                    total_flops += float(flops)
+                    total_macs += float(macs)
+                    total_params += float(params)
+                else:
+                    noise_pred = self.transformer(
                         hidden_states=latent_model_input,
                         timestep=timestep / 1000,
                         guidance=guidance,
@@ -843,29 +862,9 @@ class QwenImageEditPipeline(DiffusionPipeline, QwenImageLoraLoaderMixin):
                         txt_seq_lens=txt_seq_lens,
                         attention_kwargs=self.attention_kwargs,
                         return_dict=False,
-                        cache_dic=profile_cache_dic,
-                        current=profile_current,
-                    )
-
-                    from calflops import calculate_flops
-                    flops, macs, params = calculate_flops(model = self.transformer, kwargs = {k: v for k, v in inputs.items() if v is not None})
-                    total_flops += float(flops)
-                    total_macs += float(macs)
-                    total_params += float(params)
-
-                noise_pred = self.transformer(
-                    hidden_states=latent_model_input,
-                    timestep=timestep / 1000,
-                    guidance=guidance,
-                    encoder_hidden_states_mask=prompt_embeds_mask,
-                    encoder_hidden_states=prompt_embeds,
-                    img_shapes=img_shapes,
-                    txt_seq_lens=txt_seq_lens,
-                    attention_kwargs=self.attention_kwargs,
-                    return_dict=False,
-                    cache_dic=cache_dic,
-                    current=current,
-                )[0]
+                        cache_dic=cache_dic,
+                        current=current,
+                    )[0]
                 noise_pred = noise_pred[:, : latents.size(1)]
 
             if do_true_cfg:
@@ -873,8 +872,38 @@ class QwenImageEditPipeline(DiffusionPipeline, QwenImageLoraLoaderMixin):
                     current['stream'] = 'uncond'
 
                     if cache_dic['test_FLOPs']:
-                        profile_current['stream'] = 'uncond'
-                        inputs=dict(
+                        from calflops.calculate_pipline import CalFlopsPipline
+                        flops_counter = CalFlopsPipline(
+                            model=self.transformer,
+                            include_backPropagation=False,
+                            compute_bp_factor=2.0,
+                            is_sparse=False,
+                        )
+                        flops_counter.start_flops_calculate()
+                        try:
+                            neg_noise_pred = self.transformer(
+                                hidden_states=latent_model_input,
+                                timestep=timestep / 1000,
+                                guidance=guidance,
+                                encoder_hidden_states_mask=negative_prompt_embeds_mask,
+                                encoder_hidden_states=negative_prompt_embeds,
+                                img_shapes=img_shapes,
+                                txt_seq_lens=negative_txt_seq_lens,
+                                attention_kwargs=self.attention_kwargs,
+                                return_dict=False,
+                                cache_dic=cache_dic,
+                                current=current,
+                            )[0]
+                            flops = flops_counter.get_total_flops()
+                            macs = flops_counter.get_total_macs()
+                            params = flops_counter.get_total_params()
+                        finally:
+                            flops_counter.end_flops_calculate()
+                        total_flops += float(flops)
+                        total_macs += float(macs)
+                        total_params += float(params)
+                    else:
+                        neg_noise_pred = self.transformer(
                             hidden_states=latent_model_input,
                             timestep=timestep / 1000,
                             guidance=guidance,
@@ -884,29 +913,9 @@ class QwenImageEditPipeline(DiffusionPipeline, QwenImageLoraLoaderMixin):
                             txt_seq_lens=negative_txt_seq_lens,
                             attention_kwargs=self.attention_kwargs,
                             return_dict=False,
-                            cache_dic=profile_cache_dic,
-                            current=profile_current,
-                        )
-
-                        from calflops import calculate_flops
-                        flops, macs, params = calculate_flops(model = self.transformer, kwargs = {k: v for k, v in inputs.items() if v is not None})
-                        total_flops += float(flops)
-                        total_macs += float(macs)
-                        total_params += float(params)
-
-                    neg_noise_pred = self.transformer(
-                        hidden_states=latent_model_input,
-                        timestep=timestep / 1000,
-                        guidance=guidance,
-                        encoder_hidden_states_mask=negative_prompt_embeds_mask,
-                        encoder_hidden_states=negative_prompt_embeds,
-                        img_shapes=img_shapes,
-                        txt_seq_lens=negative_txt_seq_lens,
-                        attention_kwargs=self.attention_kwargs,
-                        return_dict=False,
-                        cache_dic=cache_dic,
-                        current=current,
-                    )[0]
+                            cache_dic=cache_dic,
+                            current=current,
+                        )[0]
                 neg_noise_pred = neg_noise_pred[:, : latents.size(1)]
                 comb_pred = neg_noise_pred + true_cfg_scale * (noise_pred - neg_noise_pred)
 
@@ -940,8 +949,6 @@ class QwenImageEditPipeline(DiffusionPipeline, QwenImageLoraLoaderMixin):
                 xm.mark_step()
 
             current['step'] += 1
-            if cache_dic['test_FLOPs']:
-                profile_current['step'] += 1
 
         if cache_dic['monitor_gpu_usage']:
             current_mem_end, peak_mem_end = monitor_gpu_memory()

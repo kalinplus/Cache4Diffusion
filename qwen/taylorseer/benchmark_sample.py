@@ -1,4 +1,5 @@
 import argparse
+import gc
 import math
 import os
 import statistics
@@ -22,6 +23,13 @@ def read_prompts(prompt_file: str):
 
 def sync_cuda():
     if torch.cuda.is_available():
+        torch.cuda.synchronize()
+
+
+def release_cuda_memory():
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
         torch.cuda.synchronize()
 
 
@@ -244,7 +252,7 @@ def main(args):
     base_seed = args.seed if args.seed is not None else torch.randint(0, 2**32, (1,)).item()
 
     for i, prompt in enumerate(tqdm(warmup_prompts, desc="Warmup")):
-        call_pipeline(
+        result, cache_dic = call_pipeline(
             pipe,
             args,
             image,
@@ -255,6 +263,8 @@ def main(args):
             monitor_gpu_usage=False,
             output_type="pil",
         )
+        del result, cache_dic
+        release_cuda_memory()
 
     latency_records = []
     for i, prompt in enumerate(tqdm(latency_prompts, desc="Latency benchmark")):
@@ -285,11 +295,14 @@ def main(args):
             "saved_files": saved_files,
             "gpu_memory_peak_gb": metrics.get("gpu_memory_peak_gb"),
         })
+        del result, cache_dic
+        release_cuda_memory()
 
     flops_records = []
+    release_cuda_memory()
     for i, prompt in enumerate(tqdm(flops_prompts, desc="FLOPs benchmark")):
         seed = base_seed + i
-        _, cache_dic = call_pipeline(
+        result, cache_dic = call_pipeline(
             pipe,
             args,
             image,
@@ -309,6 +322,8 @@ def main(args):
             "macs": metrics.get("macs"),
             "params": metrics.get("params"),
         })
+        del result, cache_dic
+        release_cuda_memory()
 
     report_path = os.path.join(args.output_dir, args.benchmark_report)
     write_report(args, latency_records, flops_records, report_path)
@@ -334,7 +349,7 @@ if __name__ == "__main__":
     parser.add_argument("--test_FLOPs", action="store_true", help="Run a separate FLOPs benchmark stage.")
     parser.add_argument("--monitor_gpu_usage", action="store_true", help="Monitor GPU memory usage during latency sampling.")
     parser.add_argument("--num_warmup_prompts", type=int, default=1, help="Number of warmup prompts, not measured.")
-    parser.add_argument("--num_benchmark_prompts", type=int, default=10, help="Number of prompts used for latency benchmark.")
+    parser.add_argument("--num_benchmark_prompts", type=int, default=1, help="Number of prompts used for latency benchmark.")
     parser.add_argument("--num_flops_prompts", type=int, default=1, help="Number of prompts used for FLOPs benchmark.")
     parser.add_argument("--benchmark_report", type=str, default="benchmark.txt", help="Benchmark report filename inside output_dir.")
     parser.add_argument("--interval", type=int, default=6)

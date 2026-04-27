@@ -2,8 +2,8 @@
 set -euo pipefail
 
 export CUDA_VISIBLE_DEVICES='0,1,2,3'
-export TS_DEBUG_SMOOTH=1
-export TS_DEBUG_FILTER="0"
+export TS_DEBUG_SMOOTH=0
+export TS_DEBUG_FILTER=""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -13,13 +13,12 @@ export QWEN_IMAGE_MODEL_PATH="/mnt/data1/pretrained_models/Qwen/Qwen-Image"
 
 cd "${SCRIPT_DIR}"
 
-export USE_SMOOTHING="True"
 export SMOOTHING_METHOD="exponential"
 
-INTERVAL=(6)
-MAX_ORDERS=(2)
+INTERVAL=(4 5 6)
+MAX_ORDERS=(1 2)
 FIRST_ENHANCE=(3)
-ALPHAS=(0.8)
+ALPHAS=(0.7 0.75 0.8)
 
 PROMPT_FILE="${SCRIPT_DIR}/prompts/DrawBench200.txt"
 INPUT_IMAGE="${PROJECT_ROOT}/qwen/teacache/img.jpg"
@@ -45,7 +44,7 @@ for interval in "${INTERVAL[@]}"; do
                     --model_path "${MODEL_PATH}" \
                     --output_dir "${output_dir}" \
                     --num_warmup_prompts 1 \
-                    --num_benchmark_prompts 10 \
+                    --num_benchmark_prompts 1 \
                     --num_flops_prompts 1 \
                     --benchmark_report benchmark.txt \
                     --test_FLOPs \
