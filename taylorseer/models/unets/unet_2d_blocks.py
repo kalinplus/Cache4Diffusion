@@ -1280,6 +1280,10 @@ class CrossAttnDownBlock2D(nn.Module):
                 )[0]
             else:
                 current['subsubmodule'] = 'resnet'
+                if 'subidx' in current:
+                    del current['subidx']
+                if 'subsubsubmodule' in current:
+                    del current['subsubsubmodule']
                 hidden_states = resnet(hidden_states, temb, cache_dic, current)
                 current['subsubmodule'] = 'attention'
                 hidden_states = attn(
@@ -1300,22 +1304,23 @@ class CrossAttnDownBlock2D(nn.Module):
             output_states = output_states + (hidden_states,)
 
         current['subsubmodule'] = 'downsampler'
+        if 'idx' in current:
+            del current['idx']
+        if 'subidx' in current:
+            del current['subidx']
+        if 'subsubsubmodule' in current:
+            del current['subsubsubmodule']
         if self.downsamplers is not None:
-            from cache_functions import derivative_approximation, taylor_formula
-            
+            from cache_functions import update_cache_or_approximate
+
             if current['type'] == 'full':
                 for downsampler in self.downsamplers:
                     hidden_states = downsampler(hidden_states)
-                
-                updated_taylor_factors = derivative_approximation(cache_dic=cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']], 
-                                        current=current, 
-                                        max_order=cache_dic['max_order'], 
-                                        first_enhance=cache_dic['first_enhance'], 
-                                        feature=hidden_states)
-                cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']] = updated_taylor_factors
+
+                update_cache_or_approximate(cache_dic, current, hidden_states)
 
             else:
-                hidden_states = taylor_formula(cache_dic=cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']], current=current)
+                hidden_states = update_cache_or_approximate(cache_dic, current, None)
 
             output_states = output_states + (hidden_states,)
 
@@ -1394,22 +1399,23 @@ class DownBlock2D(nn.Module):
             output_states = output_states + (hidden_states,)
 
         current['subsubmodule'] = 'downsampler'
+        if 'idx' in current:
+            del current['idx']
+        if 'subidx' in current:
+            del current['subidx']
+        if 'subsubsubmodule' in current:
+            del current['subsubsubmodule']
         if self.downsamplers is not None:
-            from cache_functions import derivative_approximation, taylor_formula
+            from cache_functions import update_cache_or_approximate
 
             if current['type'] == 'full':
                 for downsampler in self.downsamplers:
                     hidden_states = downsampler(hidden_states)
-                
-                updated_taylor_factors = derivative_approximation(cache_dic=cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']], 
-                                        current=current, 
-                                        max_order=cache_dic['max_order'], 
-                                        first_enhance=cache_dic['first_enhance'], 
-                                        feature=hidden_states)
-                cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']] = updated_taylor_factors
-                
+
+                update_cache_or_approximate(cache_dic, current, hidden_states)
+
             else:
-                hidden_states = taylor_formula(cache_dic=cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']], current=current)
+                hidden_states = update_cache_or_approximate(cache_dic, current, None)
 
             output_states = output_states + (hidden_states,)
 
@@ -2505,6 +2511,10 @@ class CrossAttnUpBlock2D(nn.Module):
                 )[0]
             else:
                 current['subsubmodule'] = 'resnet'
+                if 'subidx' in current:
+                    del current['subidx']
+                if 'subsubsubmodule' in current:
+                    del current['subsubsubmodule']
                 hidden_states = resnet(hidden_states, temb, cache_dic, current)
                 current['subsubmodule'] = 'attention'
                 hidden_states = attn(
@@ -2519,22 +2529,23 @@ class CrossAttnUpBlock2D(nn.Module):
                 )[0]
 
         current['subsubmodule'] = 'upsampler'
+        if 'idx' in current:
+            del current['idx']
+        if 'subidx' in current:
+            del current['subidx']
+        if 'subsubsubmodule' in current:
+            del current['subsubsubmodule']
         if self.upsamplers is not None:
-            from cache_functions import derivative_approximation, taylor_formula
+            from cache_functions import update_cache_or_approximate
 
             if current['type'] == 'full':
                 for upsampler in self.upsamplers:
                     hidden_states = upsampler(hidden_states, upsample_size)
 
-                updated_taylor_factors = derivative_approximation(cache_dic=cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']], 
-                                        current=current, 
-                                        max_order=cache_dic['max_order'], 
-                                        first_enhance=cache_dic['first_enhance'], 
-                                        feature=hidden_states)
-                cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']] = updated_taylor_factors
-                
+                update_cache_or_approximate(cache_dic, current, hidden_states)
+
             else:
-                hidden_states = taylor_formula(cache_dic=cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']], current=current)
+                hidden_states = update_cache_or_approximate(cache_dic, current, None)
 
         return hidden_states
 
@@ -2638,24 +2649,23 @@ class UpBlock2D(nn.Module):
                 hidden_states = resnet(hidden_states, temb, cache_dic, current)
 
         current['subsubmodule'] = 'upsampler'
+        if 'idx' in current:
+            del current['idx']
+        if 'subidx' in current:
+            del current['subidx']
+        if 'subsubsubmodule' in current:
+            del current['subsubsubmodule']
         if self.upsamplers is not None:
-            from cache_functions import derivative_approximation, taylor_formula
+            from cache_functions import update_cache_or_approximate
 
             if current['type'] == 'full':
                 for upsampler in self.upsamplers:
                     hidden_states = upsampler(hidden_states, upsample_size)
 
-                updated_taylor_factors = derivative_approximation(cache_dic=cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']], 
-                                            current=current, 
-                                            max_order=cache_dic['max_order'], 
-                                            first_enhance=cache_dic['first_enhance'], 
-                                            feature=hidden_states)
-                cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']] = updated_taylor_factors
-                
+                update_cache_or_approximate(cache_dic, current, hidden_states)
+
             else:
-
-                hidden_states = taylor_formula(cache_dic=cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']], current=current)
-
+                hidden_states = update_cache_or_approximate(cache_dic, current, None)
 
         return hidden_states
 

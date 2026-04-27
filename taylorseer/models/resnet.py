@@ -322,7 +322,7 @@ class ResnetBlock2D(nn.Module):
             deprecation_message = "The `scale` argument is deprecated and will be ignored. Please remove it, as passing it will raise an error in the future. `scale` should directly be passed while calling the underlying pipeline component i.e., via `cross_attention_kwargs`."
             deprecate("scale", "1.0.0", deprecation_message)
 
-        from cache_functions import derivative_approximation, taylor_formula
+        from cache_functions import update_cache_or_approximate
 
         if current['type'] == 'full':
             hidden_states = input_tensor
@@ -368,16 +368,11 @@ class ResnetBlock2D(nn.Module):
             hidden_states = self.dropout(hidden_states)
             hidden_states = self.conv2(hidden_states)
 
-            updated_taylor_factors = derivative_approximation(cache_dic=cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']][current['idx']], 
-                                    current=current, 
-                                    max_order=cache_dic['max_order'], 
-                                    first_enhance=cache_dic['first_enhance'],
-                                    feature=hidden_states)
-            cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']][current['idx']] = updated_taylor_factors
-            
+            update_cache_or_approximate(cache_dic, current, hidden_states)
+
         else:
-            
-            hidden_states = taylor_formula(cache_dic=cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']][current['idx']], current=current)
+
+            hidden_states = update_cache_or_approximate(cache_dic, current, None)
 
         if self.conv_shortcut is not None:
             input_tensor = self.conv_shortcut(input_tensor.contiguous())

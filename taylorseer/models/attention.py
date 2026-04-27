@@ -964,7 +964,7 @@ class BasicTransformerBlock(nn.Module):
             if cross_attention_kwargs.get("scale", None) is not None:
                 logger.warning("Passing `scale` to `cross_attention_kwargs` is deprecated. `scale` will be ignored.")
 
-        from cache_functions import derivative_approximation, taylor_formula
+        from cache_functions import update_cache_or_approximate
 
         if current['type'] == 'full':
             # Notice that normalization is always applied before the real computation in the following blocks.
@@ -1005,12 +1005,7 @@ class BasicTransformerBlock(nn.Module):
             )
 
             current['subsubsubmodule'] = 'attn1'
-            updated_taylor_factors = derivative_approximation(cache_dic=cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']][current['idx']][current['subidx']][current['subsubsubmodule']], 
-                                    current=current, 
-                                    max_order=cache_dic['max_order'], 
-                                    first_enhance=cache_dic['first_enhance'],
-                                    feature=attn_output)
-            cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']][current['idx']][current['subidx']][current['subsubsubmodule']] = updated_taylor_factors
+            update_cache_or_approximate(cache_dic, current, attn_output)
 
             if self.norm_type == "ada_norm_zero":
                 attn_output = gate_msa.unsqueeze(1) * attn_output
@@ -1032,8 +1027,6 @@ class BasicTransformerBlock(nn.Module):
                 elif self.norm_type in ["ada_norm_zero", "layer_norm", "layer_norm_i2vgen"]:
                     norm_hidden_states = self.norm2(hidden_states)
                 elif self.norm_type == "ada_norm_single":
-                    # For PixArt norm2 isn't applied here:
-                    # https://github.com/PixArt-alpha/PixArt-alpha/blob/0f55e922376d8b797edd44d25d0e7464b260dcab/diffusion/model/nets/PixArtMS.py#L70C1-L76C103
                     norm_hidden_states = hidden_states
                 elif self.norm_type == "ada_norm_continuous":
                     norm_hidden_states = self.norm2(hidden_states, added_cond_kwargs["pooled_text_emb"])
@@ -1051,17 +1044,11 @@ class BasicTransformerBlock(nn.Module):
                 )
 
                 current['subsubsubmodule'] = 'attn2'
-                updated_taylor_factors = derivative_approximation(cache_dic=cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']][current['idx']][current['subidx']][current['subsubsubmodule']], 
-                                        current=current, 
-                                        max_order=cache_dic['max_order'], 
-                                        first_enhance=cache_dic['first_enhance'],
-                                        feature=attn_output)
-                cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']][current['idx']][current['subidx']][current['subsubsubmodule']] = updated_taylor_factors
-                
+                update_cache_or_approximate(cache_dic, current, attn_output)
+
                 hidden_states = attn_output + hidden_states
 
             # 4. Feed-forward
-            # i2vgen doesn't have this norm 🤷‍♂️
             if self.norm_type == "ada_norm_continuous":
                 norm_hidden_states = self.norm3(hidden_states, added_cond_kwargs["pooled_text_emb"])
             elif not self.norm_type == "ada_norm_single":
@@ -1075,19 +1062,13 @@ class BasicTransformerBlock(nn.Module):
                 norm_hidden_states = norm_hidden_states * (1 + scale_mlp) + shift_mlp
 
             if self._chunk_size is not None:
-                # "feed_forward_chunk_size" can be used to save memory
                 ff_output = _chunked_feed_forward(self.ff, norm_hidden_states, self._chunk_dim, self._chunk_size)
             else:
                 ff_output = self.ff(norm_hidden_states)
 
             current['subsubsubmodule'] = 'mlp'
-            updated_taylor_factors = derivative_approximation(cache_dic=cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']][current['idx']][current['subidx']][current['subsubsubmodule']], 
-                                    current=current, 
-                                    max_order=cache_dic['max_order'], 
-                                    first_enhance=cache_dic['first_enhance'],
-                                    feature=ff_output)
-            cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']][current['idx']][current['subidx']][current['subsubsubmodule']] = updated_taylor_factors
-            
+            update_cache_or_approximate(cache_dic, current, ff_output)
+
             if self.norm_type == "ada_norm_zero":
                 ff_output = gate_mlp.unsqueeze(1) * ff_output
             elif self.norm_type == "ada_norm_single":
@@ -1102,7 +1083,7 @@ class BasicTransformerBlock(nn.Module):
             cross_attention_kwargs = cross_attention_kwargs.copy() if cross_attention_kwargs is not None else {}
             gligen_kwargs = cross_attention_kwargs.pop("gligen", None)
             current['subsubsubmodule'] = 'attn1'
-            attn_output = taylor_formula(cache_dic=cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']][current['idx']][current['subidx']][current['subsubsubmodule']], current=current)
+            attn_output = update_cache_or_approximate(cache_dic, current, None)
             hidden_states = attn_output + hidden_states
             if hidden_states.ndim == 4:
                 hidden_states = hidden_states.squeeze(1)
@@ -1110,11 +1091,11 @@ class BasicTransformerBlock(nn.Module):
                 hidden_states = self.fuser(hidden_states, gligen_kwargs["objs"])
 
             current['subsubsubmodule'] = 'attn2'
-            attn_output = taylor_formula(cache_dic=cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']][current['idx']][current['subidx']][current['subsubsubmodule']], current=current)
+            attn_output = update_cache_or_approximate(cache_dic, current, None)
             hidden_states = attn_output + hidden_states
 
             current['subsubsubmodule'] = 'mlp'
-            ff_output = taylor_formula(cache_dic=cache_dic['cache'][-1][current['module']][current['submodule']][current['subsubmodule']][current['idx']][current['subidx']][current['subsubsubmodule']], current=current)
+            ff_output = update_cache_or_approximate(cache_dic, current, None)
             hidden_states = ff_output + hidden_states
             if hidden_states.ndim == 4:
                 hidden_states = hidden_states.squeeze(1)

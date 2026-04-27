@@ -1,54 +1,61 @@
-def cache_init(**kwargs):   
-    '''
-    Initialization for cache.
-    '''
-    cache = {}
-    cache[-1]={}
+import copy
 
-    cache[-1]['downblocks'] = {}
+
+def _create_block_cache():
+    cache = {}
+    cache['downblocks'] = {}
     for submodule in ['DownBlock2D_0', 'CrossAttnDownBlock2D_1', 'CrossAttnDownBlock2D_2']:
-        cache[-1]['downblocks'][submodule] = {}
+        cache['downblocks'][submodule] = {}
         for subsubmodule in ['resnet', 'attention', 'downsampler']:
-            cache[-1]['downblocks'][submodule][subsubmodule] = {}
+            cache['downblocks'][submodule][subsubmodule] = {}
             if subsubmodule == 'resnet' or subsubmodule == 'attention':
                 for i in range(2):
-                    cache[-1]['downblocks'][submodule][subsubmodule][i] = {}
+                    cache['downblocks'][submodule][subsubmodule][i] = {}
                     if submodule in ['CrossAttnDownBlock2D_1', 'CrossAttnDownBlock2D_2'] and subsubmodule == 'attention':
                         num_of_subattentions = 2 if submodule == 'CrossAttnDownBlock2D_1' else 10
                         for j in range(num_of_subattentions):
-                            cache[-1]['downblocks'][submodule][subsubmodule][i][j] = {} # subattention
+                            cache['downblocks'][submodule][subsubmodule][i][j] = {}
                             for subsubsubmodule in ['attn1', 'attn2', 'mlp']:
-                                cache[-1]['downblocks'][submodule][subsubmodule][i][j][subsubsubmodule] = {}
-                            
-    cache[-1]['midblock'] = {}
-    cache[-1]['midblock']['UNetMidBlock2DCrossAttn'] = {}
+                                cache['downblocks'][submodule][subsubmodule][i][j][subsubsubmodule] = {}
+
+    cache['midblock'] = {}
+    cache['midblock']['UNetMidBlock2DCrossAttn'] = {}
     for subsubmodule in ['resnet', 'attention']:
-        cache[-1]['midblock']['UNetMidBlock2DCrossAttn'][subsubmodule] = {}
+        cache['midblock']['UNetMidBlock2DCrossAttn'][subsubmodule] = {}
         if subsubmodule == 'resnet':
             for i in range(2):
-                cache[-1]['midblock']['UNetMidBlock2DCrossAttn'][subsubmodule][i] = {}
+                cache['midblock']['UNetMidBlock2DCrossAttn'][subsubmodule][i] = {}
         elif subsubmodule == 'attention':
-            cache[-1]['midblock']['UNetMidBlock2DCrossAttn'][subsubmodule][0] = {}
+            cache['midblock']['UNetMidBlock2DCrossAttn'][subsubmodule][0] = {}
             num_of_subattentions = 10
             for i in range(num_of_subattentions):
-                cache[-1]['midblock']['UNetMidBlock2DCrossAttn'][subsubmodule][0][i] = {} # subattention
+                cache['midblock']['UNetMidBlock2DCrossAttn'][subsubmodule][0][i] = {}
                 for subsubsubmodule in ['attn1', 'attn2', 'mlp']:
-                    cache[-1]['midblock']['UNetMidBlock2DCrossAttn'][subsubmodule][0][i][subsubsubmodule] = {}
+                    cache['midblock']['UNetMidBlock2DCrossAttn'][subsubmodule][0][i][subsubsubmodule] = {}
 
-    cache[-1]['upblocks'] = {}
+    cache['upblocks'] = {}
     for submodule in ['CrossAttnUpBlock2D_0', 'CrossAttnUpBlock2D_1', 'UpBlock2D_2']:
-        cache[-1]['upblocks'][submodule] = {}
+        cache['upblocks'][submodule] = {}
         for subsubmodule in ['resnet', 'attention', 'upsampler']:
-            cache[-1]['upblocks'][submodule][subsubmodule] = {}
+            cache['upblocks'][submodule][subsubmodule] = {}
             if subsubmodule == 'resnet' or subsubmodule == 'attention':
                 for i in range(3):
-                    cache[-1]['upblocks'][submodule][subsubmodule][i] = {}
+                    cache['upblocks'][submodule][subsubmodule][i] = {}
                     if submodule in ['CrossAttnUpBlock2D_0', 'CrossAttnUpBlock2D_1'] and subsubmodule == 'attention':
                         num_of_subattentions = 10 if submodule == 'CrossAttnUpBlock2D_0' else 2
                         for j in range(num_of_subattentions):
-                            cache[-1]['upblocks'][submodule][subsubmodule][i][j] = {} # subattention
+                            cache['upblocks'][submodule][subsubmodule][i][j] = {}
                             for subsubsubmodule in ['attn1', 'attn2', 'mlp']:
-                                cache[-1]['upblocks'][submodule][subsubmodule][i][j][subsubsubmodule] = {}
+                                cache['upblocks'][submodule][subsubmodule][i][j][subsubsubmodule] = {}
+
+    return cache
+
+
+def cache_init(**kwargs):
+    cache = {}
+    cache[-1] = _create_block_cache()
+    cache[-2] = _create_block_cache()
+
     cache_dic = {}
     cache_dic['cache'] = cache
     cache_dic['height'] = kwargs['height']
@@ -60,54 +67,14 @@ def cache_init(**kwargs):
     cache_dic['max_order'] = kwargs['max_order']
     cache_dic['first_enhance'] = kwargs['first_enhance']
 
+    cache_dic['use_smoothing'] = kwargs.get('use_smoothing', False)
+    cache_dic['use_hybrid_smoothing'] = kwargs.get('use_hybrid_smoothing', False)
+    cache_dic['smoothing_method'] = kwargs.get('smoothing_method', 'exponential')
+    cache_dic['smoothing_alpha'] = kwargs.get('smoothing_alpha', 0.8)
+
     current = {}
     current['step'] = 0
     current['activated_steps'] = [0]
     current['cache_counter'] = 0
 
     return cache_dic, current
-
-# num_of_downblocks: 3
-# num_of_mid_block: 1
-# num_of_upblocks: 3
-# DownBlock2D
-# num_of_resnets: 2
-# CrossAttnDownBlock2D
-# num_of_resnets: 2
-# num_of_attentions: 2
-# Transformer2DModel
-# num_of_subattentions: 2
-# Transformer2DModel
-# num_of_subattentions: 2
-# CrossAttnDownBlock2D
-# num_of_resnets: 2
-# num_of_attentions: 2
-# Transformer2DModel
-# num_of_subattentions: 10
-# Transformer2DModel
-# num_of_subattentions: 10
-# UNetMidBlock2DCrossAttn
-# num_of_resnets: 2
-# num_of_attentions: 1
-# Transformer2DModel
-# num_of_subattentions: 10
-# CrossAttnUpBlock2D
-# num_of_resnets: 3
-# num_of_attentions: 3
-# Transformer2DModel
-# num_of_subattentions: 10
-# Transformer2DModel
-# num_of_subattentions: 10
-# Transformer2DModel
-# num_of_subattentions: 10
-# CrossAttnUpBlock2D
-# num_of_resnets: 3
-# num_of_attentions: 3
-# Transformer2DModel
-# num_of_subattentions: 2
-# Transformer2DModel
-# num_of_subattentions: 2
-# Transformer2DModel
-# num_of_subattentions: 2
-# UpBlock2D
-# num_of_resnets: 3

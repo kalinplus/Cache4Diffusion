@@ -26,6 +26,10 @@ class SamplingOptions:
     interval: int               # Cache period length
     max_order: int              # Maximum order of Taylor expansion
     first_enhance: int          # Initial enhancement steps
+    use_smoothing: bool         # Enable feature smoothing
+    use_hybrid_smoothing: bool  # Hybrid smoothing mode
+    smoothing_method: str       # Smoothing method: exponential or moving_average
+    smoothing_alpha: float      # Exponential smoothing coefficient
 
 def main(opts: SamplingOptions):
     dist.init_process_group("nccl")
@@ -72,6 +76,10 @@ def main(opts: SamplingOptions):
             'interval': opts.interval,
             'max_order': opts.max_order,
             'first_enhance': opts.first_enhance,
+            'use_smoothing': opts.use_smoothing,
+            'use_hybrid_smoothing': opts.use_hybrid_smoothing,
+            'smoothing_method': opts.smoothing_method,
+            'smoothing_alpha': opts.smoothing_alpha,
         }
         cache_dic, current = cache_init(**kwargs)
 
@@ -124,6 +132,11 @@ if __name__ == '__main__':
     parser.add_argument('--max_order', type=int, default=2)
     parser.add_argument('--first_enhance', type=int, default=3)
 
+    parser.add_argument('--use_smoothing', action='store_true', help='Enable feature smoothing for Taylor expansion.')
+    parser.add_argument('--use_hybrid_smoothing', action='store_true', help='Use hybrid smoothing (1st-order raw, 2nd+ smoothed). Only effective with --use_smoothing.')
+    parser.add_argument('--smoothing_method', type=str, default='exponential', choices=['exponential', 'moving_average'], help='Smoothing method.')
+    parser.add_argument('--smoothing_alpha', type=float, default=0.8, help='Exponential smoothing coefficient (0-1).')
+
     args = parser.parse_args()
     prompts = read_prompts(args.prompt_file)
 
@@ -141,6 +154,10 @@ if __name__ == '__main__':
         interval=args.interval,
         max_order=args.max_order,
         first_enhance=args.first_enhance,
+        use_smoothing=args.use_smoothing,
+        use_hybrid_smoothing=args.use_hybrid_smoothing,
+        smoothing_method=args.smoothing_method,
+        smoothing_alpha=args.smoothing_alpha,
     )
 
     main(opts)
