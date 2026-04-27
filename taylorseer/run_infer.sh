@@ -17,7 +17,7 @@ guidance=5.0
 seed=0
 
 # Cache parameters
-num_steps_list=(50 16 10)
+num_steps_list=(50)
 intervals=(0)
 max_order=(0)
 first_enhance=50
@@ -29,7 +29,7 @@ for interval in "${intervals[@]}"; do
         for num_steps in "${num_steps_list[@]}"; do
             outdir="${base_outdir}/S${num_steps}/N${interval}O${order}F${first_enhance}"
 
-            torchrun --nproc_per_node=4 sample.py \
+            torchrun --nproc_per_node=4 --master_port=29501 sample.py \
                 --prompt_file "$prompt_file" \
                 --height "$height" \
                 --width "$width" \
