@@ -25,6 +25,8 @@ class SamplingOptions:
     num_images_per_prompt: int  # Number of images generated per prompt
     batch_size: int             # Batch size (batching of prompts)
     model_name: str             # Model name
+    model_path: str             # Path or HuggingFace id for Qwen-Image
+    edit_model_path: str        # Path or HuggingFace id for Qwen-Image-Edit
     output_dir: str             # Output directory
     add_sampling_metadata: bool # Whether to add metadata
     test_FLOPs: bool            # Whether in FLOPs test mode
@@ -41,12 +43,12 @@ def main(opts: SamplingOptions):
     # Load pipeline
     if opts.model_name == 'qwen-image':
         pipe = QwenImagePipeline.from_pretrained(
-            "Qwen/Qwen-Image", 
+            opts.model_path,
             torch_dtype=torch.bfloat16
         ).to(device=device)
     elif opts.model_name == 'qwen-image-edit':
         pipe = QwenImageEditPipeline.from_pretrained(
-            "Qwen/Qwen-Image-Edit", 
+            opts.edit_model_path,
             torch_dtype=torch.bfloat16
         ).to(device=device)
     elif opts.model_name == 'qwen-image-lightning':
@@ -71,7 +73,7 @@ def main(opts: SamplingOptions):
         scheduler = FlowMatchEulerDiscreteScheduler.from_config(scheduler_config)
 
         pipe = QwenImagePipeline.from_pretrained(
-            "Qwen/Qwen-Image", 
+            opts.model_path,
             scheduler=scheduler,
             torch_dtype=torch.bfloat16
         ).to(device=device)
@@ -218,6 +220,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_images_per_prompt', type=int, default=1, help='Number of images per prompt.')
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size (prompt batching).')
     parser.add_argument('--model_name', type=str, default='qwen-image', choices=['qwen-image', 'qwen-image-edit', 'qwen-image-lightning'], help='Model name.')
+    parser.add_argument('--model_path', type=str, default=os.environ.get('QWEN_IMAGE_MODEL_PATH', 'Qwen/Qwen-Image'), help='Path or HuggingFace id for Qwen-Image.')
+    parser.add_argument('--edit_model_path', type=str, default=os.environ.get('QWEN_IMAGE_EDIT_MODEL_PATH', 'Qwen/Qwen-Image-Edit'), help='Path or HuggingFace id for Qwen-Image-Edit.')
     parser.add_argument('--output_dir', type=str, default='samples/test', help='Directory to save images.')
     parser.add_argument('--add_sampling_metadata', action='store_true', help='Whether to add prompt metadata to images.')
     parser.add_argument('--test_FLOPs', action='store_true', help='Test inference computation cost.')
@@ -244,6 +248,8 @@ if __name__ == '__main__':
         num_images_per_prompt=args.num_images_per_prompt,
         batch_size=args.batch_size,
         model_name=args.model_name,
+        model_path=args.model_path,
+        edit_model_path=args.edit_model_path,
         output_dir=args.output_dir,
         add_sampling_metadata=args.add_sampling_metadata,
         test_FLOPs=args.test_FLOPs,
