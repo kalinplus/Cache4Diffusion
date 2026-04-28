@@ -1,0 +1,5 @@
+Setting                                       ImageReward       FLOPs   Speedup      n
+------------------------------------------------------------------------------------------
+start15_interval2_alpha0.3                        0.6804         N/A       N/A    200
+start1_interval3_alpha0.3                         0.4366         N/A       N/A    200
+start1_interval8_alpha0.3                         0.0960    4290.22T     3.09x    200
