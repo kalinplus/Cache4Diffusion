@@ -74,6 +74,12 @@ def parse_args() -> argparse.Namespace:
         help="Torch dtype for model weights.",
     )
     parser.add_argument("--device", type=str, default="cuda", choices=["cuda", "cpu"], help="Compute device.")
+    # Speed benchmark (latency + FLOPs) via the shared cache4diffusion_bench harness.
+    parser.add_argument("--benchmark", action="store_true",
+                        help="Benchmark one generation: measure latency + transformer FLOPs.")
+    parser.add_argument("--benchmark_warmup", type=int, default=1)
+    parser.add_argument("--benchmark_runs", type=int, default=1)
+    parser.add_argument("--benchmark_report", type=str, default=None)
     return parser.parse_args()
 
 
@@ -118,6 +124,60 @@ def main() -> None:
     else:
         pipeline.to(args.device)
         ...
+
+    # ── Optional speed benchmark: latency + transformer FLOPs ──────────────
+    if args.benchmark:
+        from cache4diffusion_bench import run_benchmark
+
+        def _run(output_type="pil"):
+            height, width = args.video_size
+            out = pipeline(
+                prompt=args.prompt,
+                height=height,
+                width=width,
+                num_frames=args.video_length,
+                num_inference_steps=args.infer_steps,
+                generator=torch.Generator("cpu").manual_seed(args.seed),
+                guidance_scale=args.embedded_cfg_scale,
+                attention_kwargs={},  # pass attention_kwargs as not None to ensure TaylorSeer works properly
+                output_type=output_type,
+            )
+            return out.frames[0] if output_type == "pil" else out
+
+        def gen_once():
+            return _run("pil")
+
+        # FLOPs pass skips the (slow) 3D VAE decode via output_type="latent": we
+        # only count transformer FLOPs, and calflops' patched functionals can
+        # clash with the VAE during the instrumented pass.
+        def gen_flops():
+            return _run("latent")
+
+        report_path = args.benchmark_report or os.path.join(args.save_path, "benchmark.txt")
+        run_benchmark(
+            gen_fn=gen_once,
+            flops_gen_fn=gen_flops,
+            transformer=pipeline.transformer,
+            report_path=report_path,
+            meta={
+                "model": "hunyuan_video",
+                "task": "video_gen",
+                "dtype": args.dtype,
+                "infer_steps": args.infer_steps,
+                "seed": args.seed,
+                "embedded_cfg_scale": args.embedded_cfg_scale,
+                "video_size": list(args.video_size),
+                "video_length": args.video_length,
+                "fps": args.fps,
+                "use_taylor": args.use_taylor,
+                "flops_note": "N/A if calflops is missing in the hyv15 env (pip install calflops to enable)",
+            },
+            warmup=args.benchmark_warmup,
+            runs=args.benchmark_runs,
+            save_fn=lambda frames: export_to_video(
+                frames, os.path.join(args.save_path, f"{args.prefix}_bench.mp4"), fps=args.fps),
+        )
+        return
 
     # begin of time recording
     is_cuda = args.device == "cuda" and torch.cuda.is_available()

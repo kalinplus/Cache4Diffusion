@@ -14,7 +14,7 @@ from cache_functions import cache_init
 
 @dataclass
 class SamplingOptions:
-    image: Image.Image          # Input image
+    image: Image.Image | None   # Input image (only for image-editing models; None for t2i)
     prompts: list[str]          # List of prompts
     negative_prompt: str        # Negative prompt for guidance
     width: int                  # Image width
@@ -34,6 +34,10 @@ class SamplingOptions:
     interval: int               # Cache period length
     max_order: int              # Maximum order of Taylor expansion
     first_enhance: int          # Initial enhancement steps
+    benchmark: bool             # Whether to run the latency + FLOPs benchmark
+    benchmark_warmup: int       # Number of untimed warmup runs
+    benchmark_runs: int         # Number of timed latency runs
+    benchmark_report: str       # Where to write the benchmark report
 
 
 def main(opts: SamplingOptions):
@@ -94,6 +98,54 @@ def main(opts: SamplingOptions):
         base_seed = opts.seed
     else:
         base_seed = torch.randint(0, 2**32, (1,)).item()
+
+    # ── Optional speed benchmark: latency + transformer FLOPs ──────────────
+    if getattr(opts, "benchmark", False):
+        from cache4diffusion_bench import run_benchmark
+
+        bench_prompt = opts.prompts[0]
+        seed = int(base_seed)
+
+        def gen_once():
+            cache_dic, current = cache_init(kwargs={
+                "num_steps": opts.num_steps,
+                "test_FLOPs": False,  # the harness wraps pipe.transformer with calflops itself
+                "monitor_gpu_usage": False,
+                "interval": opts.interval,
+                "max_order": opts.max_order,
+                "first_enhance": opts.first_enhance,
+            })
+            generator = torch.Generator(device).manual_seed(int(seed))
+            if opts.model_name == "qwen-image":
+                return pipe(prompt=[bench_prompt], negative_prompt=opts.negative_prompt,
+                            height=opts.height, width=opts.width,
+                            num_inference_steps=opts.num_steps, guidance_scale=opts.guidance_scale,
+                            generator=generator, cache_dic=cache_dic, current=current)
+            elif opts.model_name == "qwen-image-edit":
+                return pipe(image=opts.image, prompt=[bench_prompt], negative_prompt=opts.negative_prompt,
+                            height=opts.height, width=opts.width,
+                            num_inference_steps=opts.num_steps, guidance_scale=opts.guidance_scale,
+                            generator=generator, cache_dic=cache_dic, current=current)
+            else:  # qwen-image-lightning
+                return pipe(prompt=[bench_prompt], negative_prompt=opts.negative_prompt,
+                            height=1024, width=1024, num_inference_steps=opts.num_steps,
+                            true_cfg_scale=1.0, guidance_scale=opts.guidance_scale,
+                            generator=generator, cache_dic=cache_dic, current=current)
+
+        report_path = opts.benchmark_report or os.path.join(opts.output_dir, "benchmark.txt")
+        run_benchmark(
+            gen_fn=gen_once,
+            transformer=getattr(pipe, "transformer", None),
+            report_path=report_path,
+            meta={
+                "model": "qwen", "model_name": opts.model_name, "task": "image_gen",
+                "dtype": "bfloat16", "num_steps": opts.num_steps, "seed": seed,
+                "guidance_scale": opts.guidance_scale, "width": opts.width, "height": opts.height,
+                "interval": opts.interval, "max_order": opts.max_order, "first_enhance": opts.first_enhance,
+            },
+            warmup=opts.benchmark_warmup, runs=opts.benchmark_runs,
+        )
+        return
 
     total_images = len(opts.prompts) * opts.num_images_per_prompt
     progress_bar = tqdm(total=total_images, desc="Generating images")
@@ -209,7 +261,7 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description="Generate images using the flux model.")
-    parser.add_argument('--input_image', type=str, default='img.jpg', help='Path to the input image.')
+    parser.add_argument('--input_image', type=str, default=None, help='Path to the input image (only required for image-editing models such as qwen-image-edit).')
     parser.add_argument('--prompt_file', type=str, default='prompts/DrawBench200.txt', help='Path to the prompt text file.')
     parser.add_argument('--negative_prompt', type=str, default=" ", help='Negative prompt for guidance.')
     parser.add_argument('--width', type=int, default=1328, help='Width of the generated image.')
@@ -230,10 +282,25 @@ if __name__ == '__main__':
     parser.add_argument('--interval', type=int, default=6)
     parser.add_argument('--max_order', type=int, default=2)
     parser.add_argument('--first_enhance', type=int, default=3)
-    
+
+    # Speed benchmark (latency + FLOPs) via the shared cache4diffusion_bench harness.
+    parser.add_argument('--benchmark', action='store_true',
+                        help='Benchmark one generation: measure latency + transformer FLOPs.')
+    parser.add_argument('--benchmark_warmup', type=int, default=1)
+    parser.add_argument('--benchmark_runs', type=int, default=1)
+    parser.add_argument('--benchmark_report', type=str, default=None)
+
     args = parser.parse_args()
 
-    image = Image.open(args.input_image)
+    # The input image is only needed for image-editing models. Text-to-image
+    # (qwen-image / qwen-image-lightning) runs without one, so we must not try
+    # to open a default file that does not exist.
+    if args.model_name == 'qwen-image-edit':
+        if not args.input_image:
+            raise ValueError("--input_image is required for qwen-image-edit.")
+        image = Image.open(args.input_image)
+    else:
+        image = None
     prompts = read_prompts(args.prompt_file)
 
     opts = SamplingOptions(
@@ -257,6 +324,10 @@ if __name__ == '__main__':
         interval=args.interval,
         max_order=args.max_order,
         first_enhance=args.first_enhance,
+        benchmark=args.benchmark,
+        benchmark_warmup=args.benchmark_warmup,
+        benchmark_runs=args.benchmark_runs,
+        benchmark_report=args.benchmark_report,
     )
 
     main(opts)

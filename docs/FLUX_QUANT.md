@@ -46,7 +46,7 @@ pip install "transformers>=4.43.2"
 - **FP8 失败原因**：PyTorch 不支持 `torch.float8_e4m3fn` 作为全局默认 dtype，`transformers` 在加载 text encoder（T5/CLIP）时调用 `torch.set_default_dtype(torch.float8_e4m3fn)`，触发 `TypeError: couldn't find storage object Float8_e4m3fnStorage`。
 - **lllyasviel 单文件 NF4 失败原因**：`FluxTransformer2DModel.from_single_file()` 加载 BnB 量化权重后，模型权重处于 `meta` 设备；后续 `DiffusionPipeline.from_pretrained(..., transformer=transformer)` 在 `dispatch_model` → `model.to(device)` 时尝试拷贝 meta tensor，导致 `NotImplementedError: Cannot copy out of meta tensor; no data!`。
 
-## 4. 适配 flux_simple 代码
+## 4. 适配 flux_diffusers 代码
 
 当前 `get_torch_dtype()`（`inference_utils.py`）已支持 `float16/bfloat16/float32/float8`：
 
@@ -65,7 +65,7 @@ def get_torch_dtype(dtype_name: str) -> torch.dtype:
 ### 在线 NF4 量化（推荐）
 
 ```bash
-cd flux_simple/taylorseer_flux
+cd flux_diffusers/taylorseer_flux
 python diffusers_taylorseer_flux.py \
     --model /mnt/data0/pretrained_models/black-forest-labs/FLUX.1-dev \
     --steps 50 --dtype bfloat16 \

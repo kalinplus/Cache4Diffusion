@@ -69,18 +69,18 @@ pipe.set_adapters(["base", "style"], weights=[1.0, 0.8])
 
 ## 4. LoRA + TaylorSeer 集成
 
-### 使用 flux_simple 版本（推荐）
+### 使用 flux_diffusers 版本（推荐）
 
-项目中有两个 Flux + TaylorSeer 实现，推荐使用 `flux_simple/taylorseer_flux`：
+项目中有两个 Flux + TaylorSeer 实现，推荐使用 `flux_diffusers/taylorseer_flux`：
 
-| 方面 | `flux_simple/taylorseer_flux` | `flux/taylorseer` |
+| 方面 | `flux_diffusers/taylorseer_flux` | `flux/taylorseer` |
 |------|-------------------------------|-------------------|
 | Pipeline | 标准 `DiffusionPipeline` | 自定义 `Flux` 类，手动加载各组件 |
 | LoRA | `pipeline.load_lora_weights()` 一行搞定 | 自定义 `FluxLoraWrapper` + `LinearLora`，需理解内部实现 |
 | Forward | Monkey-patch diffusers transformer forward | 缓存逻辑内置在自定义 model 里 |
 | 兼容性 | 支持所有 diffusers/PEFT 生态 LoRA | 仅支持自定义 LoRA 格式 |
 
-`flux_simple` 使用标准 diffusers pipeline，LoRA 接入只需在 patch forward 之前加一行：
+`flux_diffusers` 使用标准 diffusers pipeline，LoRA 接入只需在 patch forward 之前加一行：
 
 ```python
 from diffusers import DiffusionPipeline

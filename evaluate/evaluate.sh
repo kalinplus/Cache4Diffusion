@@ -1,5 +1,5 @@
 #!/bin/bash
-# Evaluate flux_simple nf4 output directories against a fixed reference.
+# Evaluate flux_diffusers nf4 output directories against a fixed reference.
 # Usage: bash evaluate.sh [--gpu GPU_ID]
 
 set -euo pipefail
@@ -15,7 +15,7 @@ export CUDA_VISIBLE_DEVICES="$GPU_ID"
 
 ROOT="/home/hkl/Cache4Diffusion/evaluate"
 PROMPT_FILE="assets/prompts/DrawBench200.txt"
-TARGET_ROOT="/home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4"
+TARGET_ROOT="/home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4"
 RESULT_FILE="$TARGET_ROOT/evaluation_results.txt"
 
 # Clear previous results
@@ -50,7 +50,7 @@ evaluate() {
 }
 
 # ------------------------------------------------------------------ #
-# New evaluation target: flux_simple nf4 outputs
+# New evaluation target: flux_diffusers nf4 outputs
 # reference_folder: S50/N0O0F50A0
 # support both layouts under quant-nf4:
 #   1) nested: S10|S16|S50/N... (e.g. S10/N0O0F50A0)

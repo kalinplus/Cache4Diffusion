@@ -15,7 +15,7 @@ from cache_functions import cache_init
 
 @dataclass
 class SamplingOptions:
-    image: Image.Image          # Input image
+    image: Image.Image | None   # Input image (only for image-editing models; None for t2i)
     prompts: list[str]          # List of prompts
     negative_prompt: str        # Negative prompt for guidance
     width: int                  # Image width
@@ -229,7 +229,7 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description="Generate images using the flux model.")
-    parser.add_argument('--input_image', type=str, default='img.jpg', help='Path to the input image.')
+    parser.add_argument('--input_image', type=str, default=None, help='Path to the input image (only required for image-editing models such as qwen-image-edit).')
     parser.add_argument('--prompt_file', type=str, default='prompts/DrawBench200.txt', help='Path to the prompt text file.')
     parser.add_argument('--negative_prompt', type=str, default=" ", help='Negative prompt for guidance.')
     parser.add_argument('--width', type=int, default=1328, help='Width of the generated image.')
@@ -251,7 +251,15 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    image = Image.open(args.input_image)
+    # The input image is only needed for image-editing models. Text-to-image
+    # (qwen-image / qwen-image-lightning) runs without one, so we must not try
+    # to open a default file that does not exist.
+    if args.model_name == 'qwen-image-edit':
+        if not args.input_image:
+            raise ValueError("--input_image is required for qwen-image-edit.")
+        image = Image.open(args.input_image)
+    else:
+        image = None
     prompts = read_prompts(args.prompt_file)
 
     opts = SamplingOptions(

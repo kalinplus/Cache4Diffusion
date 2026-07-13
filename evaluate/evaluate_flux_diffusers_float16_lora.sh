@@ -1,6 +1,6 @@
 #!/bin/bash
-# Evaluate flux_simple float16 LoRA outputs against per-LoRA fixed reference folders.
-# Usage: bash evaluate_flux_simple_float16_lora.sh [--gpu GPU_ID]
+# Evaluate flux_diffusers float16 LoRA outputs against per-LoRA fixed reference folders.
+# Usage: bash evaluate_flux_diffusers_float16_lora.sh [--gpu GPU_ID]
 
 set -euo pipefail
 
@@ -15,7 +15,7 @@ export CUDA_VISIBLE_DEVICES="$GPU_ID"
 
 ROOT="/home/hkl/Cache4Diffusion/evaluate"
 PROMPT_FILE="/home/hkl/Cache4Diffusion/assets/prompts/DrawBench200.txt"
-FLOAT16_ROOT="/home/hkl/Cache4Diffusion/flux_simple/outputs/float16"
+FLOAT16_ROOT="/home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16"
 
 evaluate_one_folder() {
     local test_folder="$1"

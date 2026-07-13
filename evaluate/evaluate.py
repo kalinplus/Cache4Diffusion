@@ -13,6 +13,51 @@ import ImageReward as RM
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
+# Default eval-model locations. The legacy defaults under /mnt/data0/... do not
+# exist on this host, so point at the locally-downloaded copies and allow an
+# override through env vars / CLI. CLIP defaults to the OpenAI ViT-L/14 that is
+# present locally (laion/CLIP-ViT-g-14 is not cached here); switch back with
+# --clip_model_path or EVAL_CLIP_MODEL_PATH.
+DEFAULT_CLIP_MODEL_PATH = os.environ.get(
+    "EVAL_CLIP_MODEL_PATH",
+    "/mnt/workspace/hkl/models/openai/clip-vit-large-patch14",
+)
+DEFAULT_IMAGEREWARD_MODEL_PATH = os.environ.get(
+    "EVAL_IMAGEREWARD_MODEL_PATH",
+    "/mnt/workspace/hkl/models/zai-org/ImageReward",
+)
+
+
+import re
+
+# A HuggingFace repo id is "namespace/name" (or just "name"): one optional slash,
+# no other path separators, no leading slash, no spaces. Used to tell a repo id
+# apart from a local path so we can give a clear error instead of the confusing
+# ``HFValidationError: Repo id must be in the form ...`` raised for absolute paths.
+_REPO_ID_RE = re.compile(r"^[A-Za-z0-9][\w.-]*(?:/[A-Za-z0-9][\w.-]*)?$")
+
+
+def _resolve_model_source(value: str, label: str) -> str:
+    """Return a model id/path that from_pretrained / ImageReward can consume.
+
+    Resolution order:
+      1. Existing local path  -> used verbatim.
+      2. HuggingFace repo id  -> returned as-is for the hub to resolve/download.
+      3. Anything else (e.g. an absolute path that does not exist) -> a clear
+         FileNotFoundError, instead of letting transformers re-interpret the
+         string as a repo id and crash with a cryptic HFValidationError.
+    """
+    if os.path.exists(value):
+        return value
+    if _REPO_ID_RE.match(value):
+        return value  # repo id — let transformers / the hub handle it
+    raise FileNotFoundError(
+        f"{label} path does not exist on disk: {value!r}. "
+        f"Pass a valid local directory (or a HuggingFace repo id such as "
+        f"'openai/clip-vit-large-patch14') via --{label.lower().replace(' ', '_')} "
+        f"or the EVAL_*_MODEL_PATH env var."
+    )
+
 def load_prompts(prompt_file_path):
     """Load prompts from file"""
     with open(prompt_file_path, "r", encoding="utf-8") as f:
@@ -60,16 +105,24 @@ def evaluate_all_metrics(test_folder, prompt_file_path=None, reference_folder=No
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     assert clip_model_path is not None
     assert imagereward_model_path is not None
-    
+
+    # Resolve model sources: local path (must exist) or HuggingFace repo id.
+    clip_src = _resolve_model_source(clip_model_path, "CLIP model")
+    imagereward_src = _resolve_model_source(imagereward_model_path, "ImageReward model")
+
     # Load models
-    clip_model = CLIPModel.from_pretrained(clip_model_path)
+    clip_model = CLIPModel.from_pretrained(clip_src)
     clip_model = clip_model.to(device)  # type: ignore
-    clip_processor = CLIPProcessor.from_pretrained(clip_model_path)
-    
+    clip_processor = CLIPProcessor.from_pretrained(clip_src)
+
     # Load ImageReward model
-    med_config = os.path.join(imagereward_model_path, "med_config.json")
-    imagereward_path = os.path.join(imagereward_model_path, "ImageReward.pt")
-    imagereward_model = RM.load(imagereward_path, download_root=imagereward_model_path, med_config=med_config).to(device)
+    if os.path.isdir(imagereward_src):
+        med_config = os.path.join(imagereward_src, "med_config.json")
+        imagereward_path = os.path.join(imagereward_src, "ImageReward.pt")
+        imagereward_model = RM.load(imagereward_path, download_root=imagereward_src, med_config=med_config).to(device)
+    else:
+        # repo id, e.g. "zai-org/ImageReward" — let ImageReward download it.
+        imagereward_model = RM.load(imagereward_src).to(device)
     
     # LPIPS model
     lpips_model = lpips.LPIPS(net='alex', verbose=False).to(device)
@@ -152,9 +205,10 @@ def main():
     parser.add_argument('--test_folder', type=str, required=True, help='Test images folder')
     parser.add_argument('--reference_folder', type=str, default=None, help='Reference images folder for quality metrics')
     parser.add_argument('--prompt_file', type=str, default="assets/prompts/DrawBench200.txt", help='Prompts file')
-    # for example, /data/public/models/laion/CLIP-ViT-g-14-laion2B-s12B-b42K
-    parser.add_argument('--clip_model_path', type=str, default="/mnt/data0/pretrained_models/laion/CLIP-ViT-g-14-laion2B-s12B-b42K") 
-    parser.add_argument('--imagereward_model_path', type=str, default="/mnt/data0/pretrained_models/zai-org/ImageReward")
+    # Local path or HuggingFace repo id. Override via CLI or the EVAL_*_MODEL_PATH env var.
+    # Examples: /mnt/workspace/hkl/models/openai/clip-vit-large-patch14, laion/CLIP-ViT-g-14-laion2B-s12B-b42K
+    parser.add_argument('--clip_model_path', type=str, default=DEFAULT_CLIP_MODEL_PATH)
+    parser.add_argument('--imagereward_model_path', type=str, default=DEFAULT_IMAGEREWARD_MODEL_PATH)
 
     args = parser.parse_args()
 

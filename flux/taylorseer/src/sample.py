@@ -45,6 +45,10 @@ class SamplingOptions:
     interval: int  # Interval for TaylorSeer
     max_order: int  # Max order for TaylorSeer
     first_enhance: int  # First enhance steps
+    benchmark: bool  # Whether to run the latency + FLOPs benchmark
+    benchmark_warmup: int  # Number of untimed warmup runs
+    benchmark_runs: int  # Number of timed latency runs
+    benchmark_report: str  # Where to write the benchmark report
 
 
 def print_smoothing_config():
@@ -104,6 +108,59 @@ def main(opts: SamplingOptions):
     # Load model to GPU
     model = load_flow_model(model_name, device=device)
     ae = load_ae(model_name, device=device)
+
+    # ── Optional speed benchmark: latency + model FLOPs ────────────────────
+    if getattr(opts, "benchmark", False):
+        from cache4diffusion_bench import run_benchmark
+
+        bench_prompt = prompts[0]
+        seed = int(base_seed)
+
+        def _prepare_once():
+            x = get_noise(1, opts.height, opts.width, device=device, dtype=torch.bfloat16, seed=seed)
+            if model_name in ("flux-dev", "flux-schnell"):
+                inp = prepare(t5, clip, x, [bench_prompt])
+            elif model_name == "flux-dev-kontext":
+                inp, _, _ = prepare_kontext(t5, clip, [bench_prompt], ae, seed=seed, device=device, img_cond_path=opts.input_image)
+                inp.pop("img_cond_orig")
+            else:  # flux-dev-fill
+                inp = prepare_fill(t5, clip, x, [bench_prompt], ae, img_cond_path=opts.input_image, mask_path=opts.mask_path)
+            timesteps = get_schedule(opts.num_steps, inp["img"].shape[1], shift=(model_name != "flux-schnell"))
+            return inp, timesteps
+
+        inp, timesteps = _prepare_once()
+        bench_kwargs = {
+            "num_steps": opts.num_steps,
+            "test_FLOPs": False,  # the harness wraps `model` with calflops itself
+            "monitor_gpu_usage": False,
+            "interval": opts.interval,
+            "max_order": opts.max_order,
+            "first_enhance": opts.first_enhance,
+        }
+
+        def gen_once():
+            with torch.no_grad():
+                x = denoise_cache(model, **inp, timesteps=timesteps, guidance=opts.guidance, **bench_kwargs)
+                x = unpack(x.float(), opts.height, opts.width)
+                with torch.autocast(device_type=device.type, dtype=torch.bfloat16):
+                    x = ae.decode(x)
+            return x
+
+        report_path = opts.benchmark_report or os.path.join(opts.output_dir, "benchmark.txt")
+        run_benchmark(
+            gen_fn=gen_once,
+            transformer=model,
+            report_path=report_path,
+            meta={
+                "model": "flux", "model_name": model_name, "task": "image_gen",
+                "dtype": "bfloat16", "num_steps": opts.num_steps, "seed": seed,
+                "guidance": opts.guidance, "width": opts.width, "height": opts.height,
+                "interval": opts.interval, "max_order": opts.max_order, "first_enhance": opts.first_enhance,
+                "latency_scope": "denoise + VAE decode; text encode (T5/CLIP) done once and excluded",
+            },
+            warmup=opts.benchmark_warmup, runs=opts.benchmark_runs,
+        )
+        return
 
     # Set random seed
     if opts.seed is not None:
@@ -261,6 +318,13 @@ if __name__ == "__main__":
     parser.add_argument("--first_enhance", type=int, default=1)
     # max_order 0 first_enhance 1 for FORA
 
+    # Speed benchmark (latency + FLOPs) via the shared cache4diffusion_bench harness.
+    parser.add_argument("--benchmark", action="store_true",
+                        help="Benchmark one generation: measure latency + model FLOPs.")
+    parser.add_argument("--benchmark_warmup", type=int, default=1)
+    parser.add_argument("--benchmark_runs", type=int, default=1)
+    parser.add_argument("--benchmark_report", type=str, default=None)
+
     args = parser.parse_args()
 
     prompts = read_prompts(args.prompt_file)
@@ -285,6 +349,10 @@ if __name__ == "__main__":
         interval=args.interval,
         max_order=args.max_order,
         first_enhance=args.first_enhance,
+        benchmark=args.benchmark,
+        benchmark_warmup=args.benchmark_warmup,
+        benchmark_runs=args.benchmark_runs,
+        benchmark_report=args.benchmark_report,
     )
 
     main(opts)

@@ -9,6 +9,7 @@ from diffusers.utils import logging
 from forwards import (
     taylorseer_qwen_image_mmdit_forward,
     taylorseer_qwen_image_forward,
+    taylorseer_qwen_image_pipeline_call,
 )
 
 
@@ -59,6 +60,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--outdir", type=str, default="outputs", help="Directory to save the image.")
     parser.add_argument("--prefix", type=str, default="TaylorSeer", help="Filename prefix for the image.")
     parser.add_argument(
+        "--width",
+        type=int,
+        default=1328,
+        help="Generated image width (Qwen-Image native is 1328). Must be a multiple of 16.",
+    )
+    parser.add_argument(
+        "--height",
+        type=int,
+        default=1328,
+        help="Generated image height (Qwen-Image native is 1328). Must be a multiple of 16.",
+    )
+    parser.add_argument(
         "--model",
         type=str,
         default="Qwen/Qwen-Image",
@@ -70,6 +83,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Use TaylorSeer overrides for the transformer blocks.",
     )
+    # Speed benchmark (latency + FLOPs) via the shared cache4diffusion_bench harness.
+    parser.add_argument("--benchmark", action="store_true",
+                        help="Benchmark one generation: measure latency + transformer FLOPs.")
+    parser.add_argument("--benchmark_warmup", type=int, default=1)
+    parser.add_argument("--benchmark_runs", type=int, default=1)
+    parser.add_argument("--benchmark_report", type=str, default=None)
 
     return parser.parse_args()
 
@@ -92,8 +111,12 @@ def main() -> None:
     )
 
     if args.use_taylor:
-        # TaylorSeer settings and forward overrides
-        pipeline.__class__.__call__ = taylorseer_qwen_image_pipeline_call  # OOM if use this replaced call method. No parallelism, only set device_map='balanced' when load pipe
+        # TaylorSeer settings and forward overrides.
+        # The custom __call__ is what runs cache_init() and threads
+        # cache_dic/current into the transformer forward on every pipe() call;
+        # without it current is None and the cache forward crashes. (The symbol
+        # was simply missing from the import, which is what raised NameError.)
+        pipeline.__class__.__call__ = taylorseer_qwen_image_pipeline_call
         pipeline.transformer.__class__.num_steps = int(args.steps)
         # pipeline.transformer.__class__.forward = taylorseer_qwen_image_forward
         pipeline.transformer.forward = taylorseer_qwen_image_forward.__get__(pipeline.transformer, pipeline.transformer.__class__)
@@ -117,6 +140,55 @@ def main() -> None:
         # pipeline.to(args.device)
         ...
 
+    # ── Optional speed benchmark: latency + transformer FLOPs ──────────────
+    if args.benchmark:
+        from cache4diffusion_bench import run_benchmark
+
+        def _run(output_type="pil"):
+            out = pipeline(
+                prompt=args.prompt,
+                negative_prompt="bad anatomy, lowres, blurry, text, extra arms, worst quality, jpeg artifacts",
+                num_inference_steps=int(args.steps),
+                true_cfg_scale=float(args.true_cfg_scale),
+                generator=torch.Generator("cpu").manual_seed(int(args.seed)),
+                output_type=output_type,
+            )
+            return out.images[0] if output_type == "pil" else out
+
+        def gen_once():
+            return _run("pil")
+
+        # FLOPs pass skips the VAE decode (output_type="latent"): we only count
+        # transformer FLOPs, and calflops' patched functionals break Qwen's VAE.
+        def gen_flops():
+            return _run("latent")
+
+        report_path = args.benchmark_report or os.path.join(args.outdir, "benchmark.txt")
+        run_benchmark(
+            gen_fn=gen_once,
+            flops_gen_fn=gen_flops,
+            transformer=pipeline.transformer,
+            report_path=report_path,
+            meta={
+                "model": "qwen_image",
+                "task": "image_gen",
+                "dtype": args.dtype,
+                "steps": args.steps,
+                "seed": args.seed,
+                "true_cfg_scale": args.true_cfg_scale,
+                "width": args.width,
+                "height": args.height,
+                "use_taylor": args.use_taylor,
+                "use_smoothing": os.environ.get("USE_SMOOTHING", "False"),
+                "smoothing_alpha": os.environ.get("SMOOTHING_ALPHA", "0.8"),
+            },
+            warmup=args.benchmark_warmup,
+            runs=args.benchmark_runs,
+            save_fn=lambda img: img.save(
+                os.path.join(args.outdir, f"{args.prefix}_bench.png")),
+        )
+        return
+
     is_cuda = args.device == "cuda" and torch.cuda.is_available()
     if is_cuda:
         parameter_peak_memory = torch.cuda.max_memory_allocated(device="cuda")
@@ -130,8 +202,8 @@ def main() -> None:
     image = pipeline(
         prompt=args.prompt,
         negative_prompt="bad anatomy, lowres, blurry, text, extra arms, worst quality, jpeg artifacts",
-        # width=int(args.width) if hasattr(args, 'width') else 1024,
-        # height=int(args.height) if hasattr(args, 'height') else 1024,
+        width=int(args.width),
+        height=int(args.height),
         num_inference_steps=int(args.steps),
         true_cfg_scale=float(args.true_cfg_scale),
         generator=torch.Generator("cpu").manual_seed(int(args.seed)),

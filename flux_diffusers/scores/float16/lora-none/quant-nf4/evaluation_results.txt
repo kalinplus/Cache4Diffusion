@@ -1,6 +1,6 @@
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -12,8 +12,8 @@ inf
 0.0000
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N3O0F3A0
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/N3O0F3A0
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -25,8 +25,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.2377
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N3O0F3A0.8
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/N3O0F3A0.8
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -38,8 +38,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.2327
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N3O1F3A0
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/N3O1F3A0
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -51,8 +51,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.2364
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N3O1F3A0.8
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/N3O1F3A0.8
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -64,8 +64,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.2327
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N3O2F3A0
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/N3O2F3A0
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -77,8 +77,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.2688
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N3O2F3A0.8
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/N3O2F3A0.8
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -90,8 +90,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.2419
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N5O0F3A0
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/N5O0F3A0
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -103,8 +103,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.3302
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N5O0F3A0.8
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/N5O0F3A0.8
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -116,8 +116,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.3512
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N5O1F3A0
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/N5O1F3A0
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 '(ReadTimeoutError("HTTPSConnectionPool(host='hf-mirror.com', port=443): Read timed out. (read timeout=10)"), '(Request ID: c64b1401-ec94-4cf9-b566-1fc0423ee3d0)')' thrown while requesting HEAD https://hf-mirror.com/bert-base-uncased/resolve/main/tokenizer_config.json
 Retrying in 1s [Retry 1/5].
@@ -131,8 +131,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.3621
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N5O1F3A0.8
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/N5O1F3A0.8
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -144,8 +144,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.3512
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N5O2F3A0
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/N5O2F3A0
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -157,8 +157,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.4336
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N5O2F3A0.8
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/N5O2F3A0.8
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -170,8 +170,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.3863
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N6O0F3A0
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/N6O0F3A0
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -183,8 +183,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.3757
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N6O0F3A0.8
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/N6O0F3A0.8
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -196,8 +196,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.3991
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N6O1F3A0
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/N6O1F3A0
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -209,8 +209,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.4163
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N6O1F3A0.8
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/N6O1F3A0.8
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -222,8 +222,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.3991
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N6O2F3A0
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/N6O2F3A0
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -235,8 +235,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.5086
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/N6O2F3A0.8
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/N6O2F3A0.8
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -248,8 +248,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.4522
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S10/N0O0F50A0
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S10/N0O0F50A0
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded
@@ -261,8 +261,8 @@ Result:(ClipScore, ImageReward, PSNR, SSIM, LPIPS)
 0.5066
 
 ========================================
-  test:  /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S16/N0O0F50A0
-  ref:   /home/hkl/Cache4Diffusion/flux_simple/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
+  test:  /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S16/N0O0F50A0
+  ref:   /home/hkl/Cache4Diffusion/flux_diffusers/outputs/float16/lora-none/quant-nf4/S50/N0O0F50A0
 ========================================
 load checkpoint from /mnt/data0/pretrained_models/zai-org/ImageReward/ImageReward.pt
 checkpoint loaded

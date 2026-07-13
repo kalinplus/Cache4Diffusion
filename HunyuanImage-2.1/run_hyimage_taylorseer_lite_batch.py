@@ -94,6 +94,13 @@ def parse_args():
     parser.add_argument('--smoothing_alpha', type=float, default=0.8,
                        help='Smoothing alpha for exponential method (default: 0.8)')
 
+    # Speed benchmark (latency + FLOPs) via the shared cache4diffusion_bench harness.
+    parser.add_argument('--benchmark', action='store_true',
+                       help='Benchmark one generation: measure latency + DiT FLOPs.')
+    parser.add_argument('--benchmark_warmup', type=int, default=1)
+    parser.add_argument('--benchmark_runs', type=int, default=1)
+    parser.add_argument('--benchmark_report', type=str, default=None)
+
     return parser.parse_args()
 
 def main():
@@ -131,6 +138,55 @@ def main():
     loguru.logger.info(f"Configuration: reprompt={args.use_reprompt}, refiner={args.use_refiner}, shift={args.shift}")
     if args.use_taylorseer_lite and args.use_smoothing:
         loguru.logger.info(f"Smoothing: method={args.smoothing_method}, alpha={args.smoothing_alpha}")
+
+    # ── Optional speed benchmark: latency + DiT (pipe.dit) FLOPs ───────────
+    if getattr(args, "benchmark", False):
+        from cache4diffusion_bench import run_benchmark
+
+        bench_prompt = prompts[0]
+
+        def gen_once():
+            return pipe(
+                prompt=bench_prompt,
+                width=args.width,
+                height=args.height,
+                use_reprompt=args.use_reprompt,
+                use_refiner=args.use_refiner,
+                num_inference_steps=num_inference_steps,
+                guidance_scale=args.guidance_scale,
+                shift=args.shift,
+                seed=args.seed,
+                use_smoothing=args.use_smoothing,
+                smoothing_method=args.smoothing_method,
+                smoothing_alpha=args.smoothing_alpha,
+            )
+
+        report_path = args.benchmark_report or os.path.join(args.outdir, "benchmark.txt")
+        run_benchmark(
+            gen_fn=gen_once,
+            transformer=getattr(pipe, "dit", None),
+            report_path=report_path,
+            meta={
+                "model": "hunyuan_image",
+                "task": "image_gen",
+                "dtype": "bfloat16",
+                "num_inference_steps": num_inference_steps,
+                "seed": args.seed,
+                "guidance_scale": args.guidance_scale,
+                "shift": args.shift,
+                "width": args.width,
+                "height": args.height,
+                "use_taylorseer_lite": args.use_taylorseer_lite,
+                "use_smoothing": args.use_smoothing,
+                "smoothing_method": args.smoothing_method,
+                "smoothing_alpha": args.smoothing_alpha,
+            },
+            warmup=args.benchmark_warmup,
+            runs=args.benchmark_runs,
+            save_fn=lambda img: img.save(
+                os.path.join(args.outdir, f"{args.prefix or 'TaylorSeer'}_bench.png")),
+        )
+        return
 
     # Process each prompt
     for idx, prompt in enumerate(prompts):

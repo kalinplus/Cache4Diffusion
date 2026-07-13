@@ -29,6 +29,10 @@ class SamplingOptions:
     interval: int               # Interval
     max_order: int              # Max order
     first_enhance: int          # First enhance steps
+    benchmark: bool             # Whether to run the latency + FLOPs benchmark
+    benchmark_warmup: int       # Number of untimed warmup runs
+    benchmark_runs: int         # Number of timed latency runs
+    benchmark_report: str       # Where to write the benchmark report
 
 
 def create_folders(output_dir: str, task_types: list[str], languages: list[str]):
@@ -98,6 +102,52 @@ def main(opts: SamplingOptions):
         torch_dtype=torch.bfloat16
     ).to(device=device)
     pipe = pipeline_with_cache(pipe)
+
+    # ── Optional speed benchmark: one edit, latency + transformer FLOPs ────
+    # Measured on rank 0 only (run qwen_edit with --nproc 1 for a clean number).
+    if getattr(opts, "benchmark", False):
+        if rank == 0:
+            from cache4diffusion_bench import run_benchmark
+
+            bench_item = dataset[0]
+            bench_image = cast(Image.Image, bench_item["input_image"])
+            bench_prompt = [str(bench_item["instruction"])]
+            seed = int(opts.seed)
+
+            def gen_once():
+                cache_dic, current = cache_init(kwargs={
+                    "num_steps": opts.num_steps,
+                    "test_FLOPs": False,  # the harness wraps pipe.transformer with calflops itself
+                    "monitor_gpu_usage": False,
+                    "interval": opts.interval,
+                    "max_order": opts.max_order,
+                    "first_enhance": opts.first_enhance,
+                })
+                return pipe(
+                    image=bench_image,
+                    prompt=bench_prompt,
+                    negative_prompt=opts.negative_prompt,
+                    num_inference_steps=opts.num_steps,
+                    guidance_scale=opts.guidance_scale,
+                    generator=torch.Generator(device).manual_seed(seed),
+                    cache_dic=cache_dic,
+                    current=current,
+                )
+
+            report_path = opts.benchmark_report or os.path.join(opts.output_dir, "benchmark.txt")
+            run_benchmark(
+                gen_fn=gen_once,
+                transformer=getattr(pipe, "transformer", None),
+                report_path=report_path,
+                meta={
+                    "model": "qwen_edit", "task": "image_edit", "model_name": opts.model_name,
+                    "dtype": "bfloat16", "num_steps": opts.num_steps, "seed": seed,
+                    "guidance_scale": opts.guidance_scale, "english_only": opts.english_only,
+                    "interval": opts.interval, "max_order": opts.max_order, "first_enhance": opts.first_enhance,
+                },
+                warmup=opts.benchmark_warmup, runs=opts.benchmark_runs,
+            )
+        return
 
     total = len(dataset)
     local_indices = list(range(rank, total, world_size))
@@ -194,7 +244,14 @@ if __name__ == '__main__':
     parser.add_argument('--interval', type=int, default=10)
     parser.add_argument('--max_order', type=int, default=2)
     parser.add_argument('--first_enhance', type=int, default=3)
-    
+
+    # Speed benchmark (latency + FLOPs) via the shared cache4diffusion_bench harness.
+    parser.add_argument('--benchmark', action='store_true',
+                        help='Benchmark one edit: measure latency + transformer FLOPs (rank 0 only).')
+    parser.add_argument('--benchmark_warmup', type=int, default=1)
+    parser.add_argument('--benchmark_runs', type=int, default=1)
+    parser.add_argument('--benchmark_report', type=str, default=None)
+
     args = parser.parse_args()
 
     opts = SamplingOptions(
@@ -211,6 +268,10 @@ if __name__ == '__main__':
         interval=args.interval,
         max_order=args.max_order,
         first_enhance=args.first_enhance,
+        benchmark=args.benchmark,
+        benchmark_warmup=args.benchmark_warmup,
+        benchmark_runs=args.benchmark_runs,
+        benchmark_report=args.benchmark_report,
     )
 
     main(opts)

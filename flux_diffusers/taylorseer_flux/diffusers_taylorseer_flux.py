@@ -59,6 +59,14 @@ def parse_args() -> argparse.Namespace:
                         help="Quantization mode for the transformer. "
                              "'nf4' loads the transformer with BitsAndBytes 4-bit NF4 quantization online.")
     parser.add_argument("--enable_cpu_offload", action="store_true")
+    parser.add_argument("--height", type=int, default=1024)
+    parser.add_argument("--width", type=int, default=1024)
+    # Speed benchmark (latency + FLOPs) via the shared cache4diffusion_bench harness.
+    parser.add_argument("--benchmark", action="store_true",
+                        help="Benchmark one generation: measure latency + transformer FLOPs.")
+    parser.add_argument("--benchmark_warmup", type=int, default=1)
+    parser.add_argument("--benchmark_runs", type=int, default=1)
+    parser.add_argument("--benchmark_report", type=str, default=None)
     return parser.parse_args()
 
 
@@ -136,6 +144,47 @@ def main() -> None:
 
     pipeline.to(args.device)
 
+    # ── Optional speed benchmark: latency + transformer FLOPs ──────────────
+    if args.benchmark:
+        from cache4diffusion_bench import run_benchmark
+
+        def gen_once():
+            return pipeline(
+                args.prompt,
+                num_inference_steps=int(args.steps),
+                generator=torch.Generator("cpu").manual_seed(int(args.seed)),
+                guidance_scale=float(args.guidance_scale),
+                height=args.height,
+                width=args.width,
+            ).images[0]
+
+        report_path = args.benchmark_report or os.path.join(args.outdir, "benchmark.txt")
+        run_benchmark(
+            gen_fn=gen_once,
+            transformer=pipeline.transformer,
+            report_path=report_path,
+            meta={
+                "model": "flux_diffusers",
+                "task": "image_gen",
+                "dtype": args.dtype,
+                "steps": args.steps,
+                "seed": args.seed,
+                "guidance_scale": args.guidance_scale,
+                "width": args.width,
+                "height": args.height,
+                "cache_interval": os.environ.get("FRESH_THRESHOLD", "1"),
+                "cache_max_order": os.environ.get("MAX_ORDER", "0"),
+                "cache_first_enhance": os.environ.get("FIRST_ENHANCE", "3"),
+                "use_smoothing": os.environ.get("USE_SMOOTHING", "False"),
+                "smoothing_alpha": os.environ.get("SMOOTHING_ALPHA", "0.7"),
+            },
+            warmup=args.benchmark_warmup,
+            runs=args.benchmark_runs,
+            save_fn=lambda img: img.save(
+                os.path.join(args.outdir, f"{args.prefix}_bench.png")),
+        )
+        return
+
     is_cuda = args.device == "cuda" and torch.cuda.is_available()
     if is_cuda:
         parameter_peak_memory = torch.cuda.max_memory_allocated(device="cuda")
@@ -151,6 +200,8 @@ def main() -> None:
         num_inference_steps=int(args.steps),
         generator=torch.Generator("cpu").manual_seed(int(args.seed)),
         guidance_scale=float(args.guidance_scale),
+        height=args.height,
+        width=args.width,
     ).images[0]
 
     if is_cuda:

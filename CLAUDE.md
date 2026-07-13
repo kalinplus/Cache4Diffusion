@@ -62,6 +62,74 @@ python qwen_image/taylorseer_qwen_image/diffusers_taylorseer_qwen_image.py \
     --use_taylor
 ```
 
+### Unified Output Paths & Auto-Eval (via `run.py`)
+
+When launched through `run.py`/`run.sh` **without** `--outdir`, outputs go to a
+unified, distinguishable layout (so runs of different model / method / config
+never collide):
+
+```
+{outdir_root}/{model}/[{variant}/]{method}/{config}/
+```
+
+- `outdir_root` — `--outdir_root`, default `outputs`.
+- `model` — model name (e.g. `flux_diffusers`, `qwen_image`).
+- `variant` — optional `--variant <tag>` (e.g. `lora-animation2k_v1`, `quant-nf4`).
+- `method` — `baseline` (`--no_cache`) | `taylorseer` (caching on); `--method` overrides for labelling.
+- `config` — `S{steps}` +, only when caching on **and** the model forwards the knobs, `N{interval}O{order}F{first_enhance}` +, when `--use_smoothing`, `A{alpha}`. Examples: `S50_N5O1F3A0`, `S50_N5O1F3A0.8`, baseline `S50`.
+
+An explicit `--outdir <dir>` overrides the whole layout (used literally).
+
+`--eval` runs `evaluate/evaluate.py` in the separate `eval` conda env right
+after a successful still-image generation: CLIP + ImageReward always, and
+PSNR/SSIM/LPIPS when a reference is available. The reference auto-resolves to
+the sibling `baseline/S{steps}/` folder if it exists; override with
+`--eval_reference_folder`. Metrics land at `<config>/evaluation_results.txt`.
+
+```bash
+# generate into the unified layout, then auto-eval (5 metrics if baseline exists)
+python run.py --model flux_diffusers --prompt "a cat" --steps 50 --eval --gpu 0
+
+# a cached + smoothed run, tagged with a LoRA variant
+python run.py --model flux_diffusers --prompt "a cat" --steps 50 \
+    --variant lora-animation2k_v1 --use_smoothing --smoothing_alpha 0.8 --eval
+# → outputs/flux_diffusers/lora-animation2k_v1/taylorseer/S50_N5O1F1A0.8/
+```
+
+### Speed benchmark — latency + FLOPs (via `run.py --benchmark`)
+
+`--benchmark` runs a SINGLE generation and measures real wall-clock latency
+(after warmup) plus total transformer/DiT FLOPs (via `calflops`, in a separate
+profiling pass). Report lands at `<config>/benchmark.txt`. Forces single mode
+and is incompatible with `--eval`. Knobs: `--benchmark_warmup N` (untimed
+runs, default 1), `--benchmark_runs N` (timed runs, report the mean, default 1).
+
+```bash
+# baseline (no cache) latency + FLOPs
+python run.py --model flux_diffusers --prompt "a cat" --steps 50 --benchmark --gpu 0
+
+# cached (TaylorSeer) — compare against the baseline run
+python run.py --model flux_diffusers --prompt "a cat" --steps 50 --benchmark --gpu 0 --no_cache
+# → add --no_cache for the baseline; otherwise caching knobs (N/O/F) apply
+```
+
+What is measured:
+- `latency_sec` — one generation call (perf_counter + cuda.synchronize);
+  excludes model loading, includes text encode + denoise + VAE decode.
+- `flops_T` / `macs_T` — transformer forward only, **summed over all timesteps**
+  (cond + uncond); measured in a separate pass so the calflops instrumentation
+  does not pollute latency. For diffusers models the FLOPs pass uses
+  `output_type="latent"` (skips the VAE) to avoid a calflops×VAE clash.
+- `params_G` — transformer parameter count; `peak_gpu_memory_gb`.
+
+Caveats:
+- All 8 registered models support `--benchmark`. The shared harness lives at
+  `cache4diffusion_bench.py` (imported by each entry script).
+- `calflops` is installed in `infer`/`eval` but **not** `hyv15` (HunyuanVideo):
+  latency still works there; FLOPs report `N/A` until `pip install calflops`.
+- `qwen_image` caching at native 1328² needs >80 GB (single-GPU OOM); use
+  `--no_cache` or a smaller resolution, or run on multi-GPU `device_map`.
+
 ### Batch Inference
 
 **FLUX Batch Processing:**
@@ -139,11 +207,11 @@ The cache system maintains:
 
 ## Environment
 
-QwenImage 模型使用 `qwenimage` conda 环境。在 shell 中运行命令时使用 `conda run`：
+生成模型统一首先尝试使用 `infer` conda 环境（如果不行，可以继续尝试`hyv15`环境，都不行则上报）。在 shell 中运行命令时使用 `conda run`：
 
 ```bash
-conda run -n qwenimage python -c "import sys; print(sys.executable)"
-conda run -n qwenimage pip install opencv-python -i https://pypi.tuna.tsinghua.edu.cn/simple
+conda run -n infer python -c "import sys; print(sys.executable)"
+conda run -n infer pip install opencv-python -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 ## Development Notes
@@ -153,110 +221,11 @@ conda run -n qwenimage pip install opencv-python -i https://pypi.tuna.tsinghua.e
 - The framework supports both single-GPU and multi-GPU inference
 - Memory optimization is critical due to the caching overhead
 
----
+## Testing & Debugging(测试与调试建议)
 
-## Refactoring: Strategy + Adapter Architecture
+When fixing bugs or implementing features, Claude Code **should actually run the code on GPU to verify it works end-to-end**, rather than only editing and assuming it is correct. 修复或实现功能后,鼓励真实跑一遍确认能跑通。
 
-**Branch:** `refactor/taylorseer-core`
-**Reference:** `~/Cache4Diffusion-main` (git worktree of main branch)
-**Run from:** project root `/home/hkl/Cache4Diffusion/` with `PYTHONPATH=/home/hkl/Cache4Diffusion`
-
-### Goal
-
-Decouple N×N (models × methods) into N+N (models + methods) via Strategy Pattern + Adapter Pattern.
-
-### New Package Structure
-
-```
-taylorseer_core/       # Shared math/scheduler/config (DONE)
-  math.py              # Taylor math, cache_init(), smoothing
-  scheduler.py         # cal_type(), force_scheduler()
-  config.py            # TaylorSeerConfig dataclass
-  forward_utils.py     # update_cache_or_approximate()
-
-caching_core/          # Strategy layer (DONE)
-  base.py              # CacheStrategy ABC
-  context.py           # StepContext (dict-compatible dataclass)
-  strategies/
-    taylorseer_strategy.py  # TaylorSeerStrategy wrapping taylorseer_core
-
-model_adapters/        # Adapter layer (DONE)
-  base.py              # ModelAdapter ABC + create_forward_fn()
-  info.py              # ModelInfo dataclass
-  factory.py           # patch_model_with_cache()
-  adapters/
-    flux_adapter.py    # FluxAdapter (full FLUX forward logic)
-```
-
-### Key Design Decisions
-
-- `StepContext` supports `ctx['key']` dict-style access for backward compat with `taylorseer_core`
-- `FluxAdapter.create_forward_fn()` overrides the base class version — it must include full FLUX embedding preprocessing (`x_embedder`, `temb`, `pos_embed`) before the block loop
-- `patch_model_with_cache()` assigns to `model.forward` (instance attr, not class), so `patched_forward` must NOT have `self` as first arg
-- All imports use absolute paths from project root
-- `QwenImageAdapter` uses dual `'cond'`/`'uncond'` cache branches (not `'double_stream'`) because QwenImage's true CFG calls forward twice per step. Branch name is read from diffusers' `cache_context` via wrapped `model.cache_context` → `model._ts_cache_branch`
-- `cache_init()` accepts optional `branches` dict (e.g. `{'cond': 60, 'uncond': 60}`) to override the default `double_stream`/`single_stream` layout
-
-### Migration Stages
-
-| Stage | Status | Description |
-|-------|--------|-------------|
-| 1 | ✅ Done | Extract `taylorseer_core` shared math/scheduler |
-| 2 | ✅ Done | Define `CacheStrategy` ABC |
-| 3 | ✅ Done | Implement `TaylorSeerStrategy` |
-| 4 | ✅ Done | Define `ModelAdapter` ABC + `FluxAdapter` |
-| 5 | ✅ Done | Verify FLUX end-to-end with new framework |
-| 6 | ✅ Done | Add `QwenImageAdapter`, `HunyuanVideoAdapter` (both verified) |
-| 6.5 | ⏸ Pending | `HunyuanImageAdapter` — adapter code written (diffusers-based), but local model is original format (no `model_index.json`). Needs diffusers-format weights or a `from_single_file` loading path. |
-| 7 | 🔲 Todo | Migrate ClusCa, SpeCa to strategy interface |
-| 8 | 🔲 Todo | Unified factory `create_pipeline(model, method)` |
-
-### Automated Testing
-
-**`test.sh` — 语法/语义正确性检查**（`--steps 1`，快速冒烟测试）：
-
-```bash
-MODEL_NAME=flux bash test.sh
-MODEL_NAME=qwen_image bash test.sh
-```
-
-能跑通说明代码没有语法/导入/语义错误。
-
-**`infer.sh` — 逻辑正确性检查**（多步推理，验证输出质量）：
-
-```bash
-MODEL_NAME=qwen_image bash infer.sh
-```
-
-能跑且输出图片有大致形状（不是纯黑、纯噪声）说明代码逻辑正确。需要使用视觉能力查看输出图片或由用户反馈确认。
-
-### Verify FLUX
-
-```bash
-bash flux/scripts/infer_taylorseer_single_flux.sh
-```
-
-### Evaluation
-
-`evaluate.py` 计算 5 项指标：CLIP Score, ImageReward, PSNR, SSIM, LPIPS。使用 `eval` conda 环境运行。
-
-```bash
-# 单目录评测
-conda run -n eval python evaluate.py \
-    --test_folder outputs/naive_ts/without_refiner \
-    --reference_folder outputs/origin/without_refiner \
-    --prompt_file assets/prompts/DrawBench200.txt
-
-# 批量评测所有 outputs 子目录
-bash run_eval.sh 0   # 参数为 GPU ID
-```
-
-参考目录匹配规则：按排序索引配对（非文件名），支持跨前缀比较（如 `TaylorSeer_0000_*` vs `HunyuanImage_0000_*`）。
-
-**TODO:** 让 `run_eval.sh` 输出结构化结果（如 CSV/Markdown 表格），省去手动复制。
-
-### Known Issues / Pitfalls
-
-- `cal_type()` / `force_scheduler()` in `taylorseer_core/scheduler.py` use `current['key']` dict access — `StepContext.__getitem__` handles this
-- FLUX `patched_forward` must handle `pooled_projections`, `timestep`, `img_ids`, `txt_ids`, `guidance` — these are FLUX-specific, not generic transformer args
-- `forward_double_block_full` returns `(encoder_hidden_states, hidden_states)` — note enc comes first (matches original diffusers convention)
+- **先查可用显存**:运行 `nvidia-smi` 查看各 GPU 的显存占用,挑空闲的卡(FLUX/QWen 等模型单卡通常需要 ≥20GB 空闲显存)。
+- **自己选卡跑通验证**:设置 `CUDA_VISIBLE_DEVICES=<空闲卡号>`,用 `infer` conda 环境实际运行(见上文 Environment 一节,用 `conda run -n infer`),确保改动后能真实跑通、不报错、产出符合预期。例如改了 FLUX 的 caching/forward 逻辑后,跑一张单图推理验证;改了 QWen 同理。
+- **较简单的任务**:单图推理、改动后的快速 smoke test、参数验证等,直接自主完成运行验证,无需逐步询问用户。
+- **复杂 / 高代价任务**:大批量推理、长耗时训练/评测、需要多卡、或会长时间占用大量显存(可能影响他人)的任务,先向用户说明计划与所需资源,得到确认后再执行,避免盲目占用。

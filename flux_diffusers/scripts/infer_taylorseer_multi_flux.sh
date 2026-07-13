@@ -2,7 +2,7 @@
 local_model_path="/mnt/data0/pretrained_models/black-forest-labs/FLUX.1-dev"
 model_id="black-forest-labs/FLUX.1-dev"
 
-base_outdir="/home/hkl/Cache4Diffusion/flux_simple/outputs"
+base_outdir="/home/hkl/Cache4Diffusion/flux_diffusers/outputs"
 prompt_file="/home/hkl/Cache4Diffusion/assets/prompts/DrawBench200.txt"
 
 # 支持的 dtype: float16, bfloat16, float8, float32
@@ -27,8 +27,8 @@ lora_path="/mnt/data0/pretrained_models/flux_lora/nerijs-animation2k-flux/animat
 # lora_path="/mnt/data0/pretrained_models/flux_lora/anime_lora.safetensors"
 lora_scale=1.0
 
-cd flux_simple
-export PYTHONPATH="/home/hkl/Cache4Diffusion/flux_simple:${PYTHONPATH:-}"
+cd flux_diffusers
+export PYTHONPATH="/home/hkl/Cache4Diffusion/flux_diffusers:${PYTHONPATH:-}"
 export CUDA_VISIBLE_DEVICES="6,7"
 
 # Smoothing parameters

@@ -514,7 +514,7 @@ export SMOOTHING_ALPHA="0.8"
 
 ### Bug 1：`shift_cache_history` 引用赋值导致历史特征重复
 
-**影响版本**：`qwen/taylorseer`、`flux_simple/taylorseer_core` 和 `HunyuanImage-2.1`（三者都有）
+**影响版本**：`qwen/taylorseer`、`flux_diffusers/taylorseer_core` 和 `HunyuanImage-2.1`（三者都有）
 
 **症状**：
 - `_collect_history_f0_fm1_fm2` / `get_smoothed_features` 返回的 raw features 为 `[F_{-1}, F_{-1}, F_0]`，其中两个历史特征是同一个 Tensor。
@@ -533,7 +533,7 @@ cache[-2][s][l][m] = dict(cache[-1][s][l][m])
 
 **修复文件**：
 - `qwen/taylorseer/cache_functions/cache_utils.py`
-- `flux_simple/taylorseer_core/math.py`
+- `flux_diffusers/taylorseer_core/math.py`
 - `HunyuanImage-2.1/scripts/taylorseer_lite_hyimage/taylorseer_utils.py`
 
 ---
@@ -580,7 +580,7 @@ for i in range(1, max_order):
 
 ### Bug 3：`shift_cache_history` 调用时序错误导致平滑窗口退化（所有版本）
 
-**影响版本**：`qwen/taylorseer`、`flux_simple/taylorseer_core`、`HunyuanImage-2.1`（三者都有）
+**影响版本**：`qwen/taylorseer`、`flux_diffusers/taylorseer_core`、`HunyuanImage-2.1`（三者都有）
 
 **症状**：
 - 在 step \>= 4 的 full compute 步骤中，`_collect_history` / `get_smoothed_features` 读取到的历史特征为 `[F_{上次}, F_{上次}, F_{当前}]`，三个点中前两个完全相同。
@@ -607,8 +607,8 @@ cache[-1][s][l][m] = updated                     # 再覆盖当前
 
 **修复文件**：
 - `qwen/taylorseer/cache_functions/cache_utils.py`
-- `flux_simple/taylorseer_core/math.py`
-- `flux_simple/taylorseer_core/forward_utils.py`
+- `flux_diffusers/taylorseer_core/math.py`
+- `flux_diffusers/taylorseer_core/forward_utils.py`
 - `HunyuanImage-2.1/scripts/taylorseer_lite_hyimage/taylorseer_utils.py`
 - `HunyuanImage-2.1/scripts/taylorseer_lite_hyimage/forwards/apply_taylorseer_lite_hyimage_forward.py`
 
