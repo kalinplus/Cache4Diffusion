@@ -109,11 +109,17 @@ def main(opts: SamplingOptions):
     model = load_flow_model(model_name, device=device)
     ae = load_ae(model_name, device=device)
 
+    # Set random seed (needed by both the benchmark path and the normal loop).
+    if opts.seed is not None:
+        base_seed = opts.seed
+    else:
+        base_seed = torch.randint(0, 2**32, (1,)).item()
+
     # ── Optional speed benchmark: latency + model FLOPs ────────────────────
     if getattr(opts, "benchmark", False):
         from cache4diffusion_bench import run_benchmark
 
-        bench_prompt = prompts[0]
+        bench_prompt = opts.prompts[0]  # `prompts` local is only assigned below (line ~171); use opts.prompts here
         seed = int(base_seed)
 
         def _prepare_once():
@@ -161,12 +167,6 @@ def main(opts: SamplingOptions):
             warmup=opts.benchmark_warmup, runs=opts.benchmark_runs,
         )
         return
-
-    # Set random seed
-    if opts.seed is not None:
-        base_seed = opts.seed
-    else:
-        base_seed = torch.randint(0, 2**32, (1,)).item()
 
     prompts = opts.prompts
 
