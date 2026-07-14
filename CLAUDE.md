@@ -78,6 +78,8 @@ never collide):
 - `method` — `baseline` (`--no_cache`) | `taylorseer` (caching on); `--method` overrides for labelling.
 - `config` — `S{steps}` +, only when caching on **and** the model forwards the knobs, `N{interval}O{order}F{first_enhance}` +, when `--use_smoothing`, `A{alpha}`. Examples: `S50_N5O1F3A0`, `S50_N5O1F3A0.8`, baseline `S50`.
 
+> **Default `cache_first_enhance` (F)**: for 50-step runs — the common case across FLUX/QWen/etc. — `cache_first_enhance = 3` for **all** methods (hence the `F3` in names like `S50_N5O1F3`). `flux_sweep.py`/`flux_sweep.sh` default to 3; the only exception is FLUX.1-schnell, which uses `F1` because it runs just 4 steps (`S4_N2O1F1`).
+
 An explicit `--outdir <dir>` overrides the whole layout (used literally).
 
 `--eval` runs `evaluate/evaluate.py` in the separate `eval` conda env right

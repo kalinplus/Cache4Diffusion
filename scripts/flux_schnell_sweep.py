@@ -1,10 +1,27 @@
 #!/usr/bin/env python3
-"""Run the native ``flux/`` TaylorSeer configuration sweep in parallel.
+"""Run the native ``flux_schnell`` TaylorSeer configuration sweep in parallel.
+
+This is the schnell counterpart of ``flux_sweep.py``. The differences from the
+dev sweep are intentional and reflect that FLUX.1-schnell runs in exactly 4
+denoising steps, so the cache interval can only be 1 or 2:
+
+  * ``--model flux_schnell``, ``--steps 4`` (schnell asserts steps == 4).
+  * Config space: N(cache_interval) ∈ {1, 2} × O(cache_max_order) ∈ {0, 1}
+    × F(cache_first_enhance) = 1 × smoothing ∈ {none, exponential A0.8}.
+    That is 8 cached configs + 1 baseline.
+  * Summary lands at ``outputs/flux_schnell/sweep_summary.tsv`` (same columns as
+    the dev sweep).
 
 The baseline is completed first so every cached run can use it as the metric
-reference. Cached configurations are then assigned one at a time to the GPUs
-listed in ``--gpus``. Each worker launches the existing top-level ``run.py``;
-this file only schedules subprocesses and collects their reports.
+reference. Cached configurations are then assigned one at a time to the GPUs in
+``--gpus``. Each worker launches the existing top-level ``run.py``; this file
+only schedules subprocesses and collects their reports.
+
+``--collect-only`` skips every run and instead scans the existing output tree
+(``outputs/flux_schnell/{baseline,taylorseer}/``), parsing each config's
+``benchmark.txt`` / ``evaluation_results.txt`` straight into the summary TSV.
+Use it to regenerate the summary from results already on disk — including ones
+produced by ``flux_schnell_sweep.sh`` — without touching a GPU.
 """
 
 from __future__ import annotations
@@ -17,13 +34,15 @@ import shlex
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Lock
 from typing import Iterable, Optional, Sequence
 
 
 ROOT = Path(__file__).resolve().parents[1]
+MODEL_DIR = "flux_schnell"          # sub-directory under --outdir_root
+RUN_MODEL = "flux_schnell"          # value passed to run.py --model
 PRINT_LOCK = Lock()
 
 
@@ -52,7 +71,7 @@ class ConfigResult:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Native FLUX TaylorSeer sweep through run.py."
+        description="Native FLUX.1-schnell TaylorSeer sweep through run.py."
     )
     parser.add_argument(
         "--gpus", default=os.environ.get("GPUS", os.environ.get("GPU", "0")),
@@ -66,11 +85,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--flux_clip_root", default=None)
     parser.add_argument("--outdir_root", default="outputs")
     parser.add_argument("--variant", default=None)
-    parser.add_argument("--steps", type=int, default=50)
+    parser.add_argument("--steps", type=int, default=4)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--width", type=int, default=1024)
     parser.add_argument("--height", type=int, default=1024)
-    parser.add_argument("--first_enhance", type=int, default=3)
+    parser.add_argument("--first_enhance", type=int, default=1)
     parser.add_argument("--benchmark_warmup", type=int, default=1)
     parser.add_argument("--benchmark_runs", type=int, default=3)
     parser.add_argument("--workers", type=int, default=None,
@@ -101,9 +120,14 @@ def parse_gpus(value: str) -> list[str]:
 
 
 def configs(first_enhance: int) -> list[SweepConfig]:
+    """8 cached configs: N ∈ {1,2} × O ∈ {0,1} × F=1 × {none, exponential A0.8}.
+
+    Mirrors flux_schnell_sweep.sh's INTERVALS=(1 2) MAX_ORDERS=(0 1) ALPHAS=(0 0.8):
+    alpha 0 → no smoothing, alpha 0.8 → exponential smoothing.
+    """
     result: list[SweepConfig] = []
-    for interval in (3, 5, 6):
-        for max_order in (0, 1, 2):
+    for interval in (1, 2):
+        for max_order in (0, 1):
             common = f"N{interval}O{max_order}F{first_enhance}"
             result.append(SweepConfig(
                 label=f"{common} no_smoothing", slug=f"{common}_none",
@@ -114,11 +138,6 @@ def configs(first_enhance: int) -> list[SweepConfig]:
                 label=f"{common} exponential_A0.8", slug=f"{common}_expA0.8",
                 interval=interval, max_order=max_order, first_enhance=first_enhance,
                 smoothing="exponential", alpha=0.8,
-            ))
-            result.append(SweepConfig(
-                label=f"{common} moving_average", slug=f"{common}_moving_average",
-                interval=interval, max_order=max_order, first_enhance=first_enhance,
-                smoothing="moving_average", alpha=None,
             ))
     return result
 
@@ -148,17 +167,17 @@ def output_dir(args: argparse.Namespace, config: SweepConfig) -> Path:
         if config.smoothing != "none":
             config_name += f"A{alpha_text(config.alpha)}"
         method = "taylorseer"
-    return ROOT / args.outdir_root / "flux" / variant.strip("/") / method / config_name \
-        if variant else ROOT / args.outdir_root / "flux" / method / config_name
+    base = ROOT / args.outdir_root / MODEL_DIR / method / config_name
+    return Path(f"{base}/{variant.strip('/')}".rstrip("/")) if variant else base
 
 
 def log_path(args: argparse.Namespace, config: SweepConfig) -> Path:
-    root = Path(args.logs_root) if args.logs_root else ROOT / args.outdir_root / "flux_sweep_logs"
+    root = Path(args.logs_root) if args.logs_root else ROOT / args.outdir_root / f"{MODEL_DIR}_sweep_logs"
     return root / f"{config.slug}.log"
 
 
 def base_command(args: argparse.Namespace, gpu: str, config: SweepConfig) -> list[str]:
-    command = [args.python, str(ROOT / "run.py"), "--model", "flux", "--gpu", gpu,
+    command = [args.python, str(ROOT / "run.py"), "--model", RUN_MODEL, "--gpu", gpu,
                "--steps", str(args.steps), "--seed", str(args.seed),
                "--width", str(args.width), "--height", str(args.height),
                "--outdir_root", args.outdir_root]
@@ -231,7 +250,7 @@ def resume_ready(args: argparse.Namespace, config: SweepConfig,
         return False
     if args.benchmark and not (outdir / "benchmark.txt").exists():
         return False
-    if args.evaluation and not (outdir / "evaluation_results.txt").exists():
+    if args.evaluation and not config.baseline and not (outdir / "evaluation_results.txt").exists():
         return False
     return True
 
@@ -307,10 +326,13 @@ def eval_values(path: Path) -> dict[str, str]:
     return dict(zip(names, numbers))
 
 
+def summary_path(args: argparse.Namespace) -> Path:
+    path = Path(args.summary) if args.summary else ROOT / args.outdir_root / MODEL_DIR / "sweep_summary.tsv"
+    return path if path.is_absolute() else ROOT / path
+
+
 def write_summary(args: argparse.Namespace, results: Sequence[ConfigResult]) -> Path:
-    path = Path(args.summary) if args.summary else ROOT / args.outdir_root / "flux" / "sweep_summary.tsv"
-    if not path.is_absolute():
-        path = ROOT / path
+    path = summary_path(args)
     path.parent.mkdir(parents=True, exist_ok=True)
     fields = ["label", "gpu", "status", "output_dir", "log", "benchmark_rc",
               "generation_rc", "latency_sec", "flops_T", "macs_T",
@@ -329,11 +351,6 @@ def write_summary(args: argparse.Namespace, results: Sequence[ConfigResult]) -> 
     return path
 
 
-def summary_path(args: argparse.Namespace) -> Path:
-    path = Path(args.summary) if args.summary else ROOT / args.outdir_root / "flux" / "sweep_summary.tsv"
-    return path if path.is_absolute() else ROOT / path
-
-
 def print_summary(results: Sequence[ConfigResult], summary: Path) -> None:
     ok = sum(result.status in ("ok", "resumed", "dry_run", "collected") for result in results)
     failed = len(results) - ok
@@ -346,7 +363,7 @@ def print_summary(results: Sequence[ConfigResult], summary: Path) -> None:
 def collect_existing(args: argparse.Namespace) -> list[ConfigResult]:
     """Scan the output tree and build results from what is already on disk.
 
-    Enumerates the expected baseline + cached configs and marks each
+    Enumerates the expected baseline + 8 cached configs and marks each
     ``collected`` (benchmark.txt present) or ``missing`` (dir absent / no
     benchmark). Metric/eval columns are filled in by ``write_summary``.
     """
@@ -368,11 +385,13 @@ def collect_existing(args: argparse.Namespace) -> list[ConfigResult]:
 
 def main() -> int:
     args = parse_args()
+
     if args.collect_only:
         results = collect_existing(args)
         summary = write_summary(args, results)
         print_summary(results, summary)
         return 0
+
     gpus = parse_gpus(args.gpus)
     if args.origin_only and args.cached_only:
         raise SystemExit("--origin-only and --cached-only are mutually exclusive")
